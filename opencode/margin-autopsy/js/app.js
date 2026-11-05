@@ -5,14 +5,16 @@
 import { parseScopeText, analyzeLineItem, runAutopsy } from './engine.js';
 import { SCENARIOS } from './scenarios.js';
 
-const STORAGE_KEY = 'margin_autopsy_state_v1';
+const STORAGE_KEY = 'margin_autopsy_state_v2';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmtUsd = (n) => (n < 0 ? `-$${Math.abs(Math.round(n)).toLocaleString()}` : `$${Math.round(n).toLocaleString()}`);
+
+const CURRENCY_SYM = { USD: '$', ZMW: 'K', EUR: '€', GBP: '£' };
 
 const state = {
   scenarioId: SCENARIOS[0].id,
   projectName: SCENARIOS[0].name,
+  currency: SCENARIOS[0].currency || 'USD',
   quotePrice: SCENARIOS[0].quotePrice,
   targetRate: SCENARIOS[0].targetRate,
   hardCost: SCENARIOS[0].hardCost,
@@ -21,6 +23,12 @@ const state = {
   items: [],
   report: null,
 };
+
+function fmtMoney(n, cur = state.currency) {
+  const sym = CURRENCY_SYM[cur] || '$';
+  const abs = Math.abs(Math.round(n)).toLocaleString();
+  return n < 0 ? `-${sym}${abs}` : `${sym}${abs}`;
+}
 
 function loadSaved() {
   try {
@@ -44,6 +52,7 @@ function saveState() {
       JSON.stringify({
         scenarioId: state.scenarioId,
         projectName: state.projectName,
+        currency: state.currency,
         quotePrice: state.quotePrice,
         targetRate: state.targetRate,
         hardCost: state.hardCost,
@@ -66,6 +75,7 @@ function notify(msg) {
 
 function syncInputsFromState() {
   $('projectName').value = state.projectName;
+  $('currencySelect').value = state.currency || 'USD';
   $('quotePrice').value = state.quotePrice;
   $('targetRate').value = state.targetRate;
   $('hardCost').value = state.hardCost;
@@ -78,6 +88,7 @@ function recompute() {
     quotePrice: state.quotePrice,
     targetRate: state.targetRate,
     hardCost: state.hardCost,
+    currency: state.currency,
     iterations: state.iterations,
   });
   saveState();
@@ -87,10 +98,11 @@ function recompute() {
 function renderAll() {
   const r = state.report;
   if (!r) return;
+  const sym = CURRENCY_SYM[state.currency] || '$';
 
-  const netRev = r.config.netRevenue;
-  const paperRate = r.activeBaseHours > 0 ? Math.round(netRev / r.activeBaseHours) : netRev;
-  $('quotedRatePill').textContent = `Net: ${fmtUsd(netRev)} · Max ${r.current.maxHoursForTarget}h @ $${r.config.targetRate}/hr`;
+  const netRev = r.config.activeNetRevenue;
+  const paperRate = r.activeBaseHours > 0 ? Math.round(netRev / r.activeBaseHours) : 0;
+  $('quotedRatePill').textContent = `Phase-1 Net: ${fmtMoney(netRev)} · Max ${r.current.maxHoursForTarget}h @ ${fmtMoney(r.config.targetRate)}/hr`;
   $('itemCountLabel').textContent = `${state.items.length} deliverables analyzed`;
 
   // Verdict card
@@ -106,36 +118,39 @@ function renderAll() {
 
   const p90Profit = r.current.economicMargin.profitP90;
   const subParts = [
-    `At p90 tail effort (${r.current.hours.p90}h), your realized rate is $${r.current.effectiveRate.p10}/hr (${
-      p90Profit >= 0 ? `${fmtUsd(p90Profit)} above` : `${fmtUsd(Math.abs(p90Profit))} below`
-    } your $${r.config.targetRate}/hr floor).`,
+    `At p90 tail effort (${r.current.hours.p90}h), your realized Phase-1 rate is ${fmtMoney(r.current.effectiveRate.p10)}/hr (${
+      p90Profit >= 0 ? `${fmtMoney(p90Profit)} above` : `${fmtMoney(Math.abs(p90Profit))} below`
+    } your ${fmtMoney(r.config.targetRate)}/hr floor).`,
   ];
+  if (r.config.carvedOutQuoteReduction > 0) {
+    subParts.push(`Phase-1 fee proportionally adjusted to ${fmtMoney(r.config.activeQuotePrice)} (−${fmtMoney(r.config.carvedOutQuoteReduction)} carved into ${fmtMoney(r.phase2Value)} Phase-2 option).`);
+  }
   if (r.hoursSavedP90 > 0) {
-    subParts.push(`Scope surgery saved ${r.hoursSavedP90}h of tail risk (+${fmtUsd(r.marginProtectedP90)}) and carved out ${fmtUsd(r.phase2Value)} in Phase-2 options.`);
+    subParts.push(`Scope surgery removed ${r.hoursSavedP90}h of unpriced p90 overrun.`);
   }
   $('verdictSub').textContent = subParts.join(' ');
 
-  $('safeBidVal').textContent = fmtUsd(r.safeFixedPrice);
+  $('safeBidVal').textContent = fmtMoney(r.safeFixedPrice);
   $('safeBidNote').textContent =
     r.phase2Value > 0
-      ? `+ ${fmtUsd(r.phase2Value)} Phase-2 upsell`
-      : `to lock $${r.config.targetRate}/hr at p90`;
+      ? `Phase 1 + ${fmtMoney(r.phase2Value)} Phase-2 option`
+      : `to lock ${fmtMoney(r.config.targetRate)}/hr at p90`;
 
   // Metrics strip
   $('mBaseHours').textContent = `${r.activeBaseHours} hrs`;
-  $('mPaperRate').textContent = `$${paperRate}/hr on paper (${r.quotedBaseHours}h total)`;
+  $('mPaperRate').textContent = `${fmtMoney(paperRate)}/hr on paper (${r.quotedBaseHours}h total)`;
 
   $('mP50Hours').textContent = `${r.current.hours.p50} hrs`;
-  $('mP50Rate').textContent = `$${r.current.effectiveRate.p50}/hr realized median`;
+  $('mP50Rate').textContent = `${fmtMoney(r.current.effectiveRate.p50)}/hr realized median`;
 
   $('mP90Hours').textContent = `${r.current.hours.p90} hrs`;
-  $('mP90Rate').textContent = `$${r.current.effectiveRate.p10}/hr in p90 tail`;
+  $('mP90Rate').textContent = `${fmtMoney(r.current.effectiveRate.p10)}/hr in p90 tail`;
 
   $('mProbUnder').textContent = `${r.current.probBelowTarget}%`;
   $('mShieldSaved').textContent =
     r.hoursSavedP90 > 0
-      ? `Saved ${r.hoursSavedP90}h vs unshielded (${r.unshielded.probBelowTarget}%)`
-      : `Unshielded · click Auto-Shield to cap traps`;
+      ? `Cut ${r.hoursSavedP90}h overrun (was ${r.unshielded.probBelowTarget}%)`
+      : `Unshielded (${sym}) · click Auto-Shield`;
 
   renderDrivers(r);
   renderTable(r);
@@ -154,7 +169,7 @@ function renderDrivers(r) {
         <span class="mono">+${d.overrunHours}h</span>
       </div>
       <div class="driver-meta">
-        Base ${d.baseHours}h → Raw p90 ${d.p90Hours}h (${fmtUsd(d.overrunCost)} unpriced drag · ${d.sharePct}% of tail)
+        Base ${d.baseHours}h → Raw p90 ${d.p90Hours}h (${fmtMoney(d.overrunCost)} unpriced drag · ${d.sharePct}% of tail)
       </div>
       <div class="driver-bar"><div style="width:${Math.min(100, Math.max(8, d.sharePct))}%"></div></div>
     </li>`
@@ -271,7 +286,6 @@ function drawHistogram(canvas, r) {
   });
   g.globalAlpha = 1;
 
-  // Draw threshold and quantile lines
   const markers = [
     { hrs: r.current.hours.p50, label: `p50 (${r.current.hours.p50}h)`, color: css('--blue') },
     { hrs: r.current.hours.p90, label: `p90 (${r.current.hours.p90}h)`, color: css('--warn') },
@@ -295,7 +309,6 @@ function drawHistogram(canvas, r) {
     g.fillText(m.label, x, 13 + (idx % 2) * 10);
   });
 
-  // X-axis ticks
   g.fillStyle = css('--ink-muted');
   g.font = `11px ${css('--font-mono') || 'monospace'}`;
   g.textAlign = 'center';
@@ -322,7 +335,7 @@ function openClientSchedule() {
   body { font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0F172A; max-width: 840px; margin: 28px auto; padding: 0 24px; }
   h1 { font-size: 22px; margin: 0 0 4px; }
   h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px; margin-top: 26px; }
-  .meta { display: flex; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 18px; margin-top: 14px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 18px; margin-top: 14px; }
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   th, td { border-bottom: 1px solid #E2E8F0; padding: 9px 8px; text-align: left; vertical-align: top; }
   th { font-size: 12px; color: #475569; }
@@ -338,9 +351,9 @@ function openClientSchedule() {
   <p style="color:#475569;margin:0">${esc(state.projectName)} · Prepared ${esc(dateStr)}</p>
 
   <div class="meta">
-    <div><strong>Phase 1 Fixed Fee:</strong> ${fmtUsd(r.config.quotePrice)}</div>
-    <div><strong>Baseline Effort Allocation:</strong> ${r.activeBaseHours} hrs</div>
-    <div><strong>Optional Phase 2 Estimate:</strong> ${phase2Items.length ? fmtUsd(r.phase2Value) : 'N/A'}</div>
+    <div><strong>Phase 1 Fixed Fee:</strong> ${fmtMoney(r.config.activeQuotePrice)}</div>
+    <div><strong>Phase 1 Baseline Allocation:</strong> ${r.activeBaseHours} hrs</div>
+    <div><strong>Optional Phase 2 Estimate:</strong> ${phase2Items.length ? fmtMoney(r.phase2Value) : 'None'}</div>
   </div>
 
   <h2>1. Phase 1 Deliverables &amp; Contractual Guardrails</h2>
@@ -380,7 +393,7 @@ function openClientSchedule() {
           <td>${it.index}</td>
           <td><strong>${esc(it.title)}</strong></td>
           <td>${it.raw.p50} hrs</td>
-          <td>${fmtUsd(it.raw.p50 * r.config.targetRate)}</td>
+          <td>${fmtMoney(it.raw.p50 * r.config.targetRate)}</td>
         </tr>`
         )
         .join('')}
@@ -390,7 +403,7 @@ function openClientSchedule() {
   }
 
   <h2>3. Change-Control Protocol</h2>
-  <p style="font-size:13px;color:#334155">Any third-party API discrepancies, schema modifications after Sprint 1 sign-off, or additional revision cycles beyond the boundaries above are handled via a written Change Order at $${r.config.targetRate}/hr or deferred to Phase 2.</p>
+  <p style="font-size:13px;color:#334155">Capped Allowance items include up to the stated maximum hours; work beyond the cap or outside the enumerated boundaries above is handled via a written Change Order at ${fmtMoney(r.config.targetRate)}/hr or deferred to Phase 2.</p>
 </body>
 </html>`;
 
@@ -402,7 +415,10 @@ function openClientSchedule() {
 
 function wireEvents() {
   const sel = $('scenarioSelect');
-  sel.innerHTML = SCENARIOS.map((s) => `<option value="${esc(s.id)}">${esc(s.name)} ($${s.quotePrice.toLocaleString()})</option>`).join('');
+  sel.innerHTML = SCENARIOS.map((s) => {
+    const sym = CURRENCY_SYM[s.currency || 'USD'] || '$';
+    return `<option value="${esc(s.id)}">${esc(s.name)} (${sym}${s.quotePrice.toLocaleString()})</option>`;
+  }).join('');
   sel.value = state.scenarioId;
 
   sel.addEventListener('change', (e) => {
@@ -410,6 +426,7 @@ function wireEvents() {
     if (!sc) return;
     state.scenarioId = sc.id;
     state.projectName = sc.name;
+    state.currency = sc.currency || 'USD';
     state.quotePrice = sc.quotePrice;
     state.targetRate = sc.targetRate;
     state.hardCost = sc.hardCost;
@@ -422,6 +439,7 @@ function wireEvents() {
 
   const onParamInput = () => {
     state.projectName = $('projectName').value.trim() || 'Untitled Project';
+    state.currency = $('currencySelect').value || 'USD';
     state.quotePrice = Number($('quotePrice').value) || 1000;
     state.targetRate = Number($('targetRate').value) || 100;
     state.hardCost = Number($('hardCost').value) || 0;
@@ -429,7 +447,7 @@ function wireEvents() {
     recompute();
   };
 
-  for (const id of ['projectName', 'quotePrice', 'targetRate', 'hardCost', 'simRuns']) {
+  for (const id of ['projectName', 'currencySelect', 'quotePrice', 'targetRate', 'hardCost', 'simRuns']) {
     $(id).addEventListener('input', onParamInput);
   }
 
@@ -460,7 +478,6 @@ function wireEvents() {
   });
 
   $('btnAutoSurgery').addEventListener('click', () => {
-    // Automatically convert the worst critical driver to Phase-2 or Capped Allowance, and other elevated/critical items to Allowance
     const sortedRisk = [...state.items].sort((a, b) => b.raw.overrunP90 - a.raw.overrunP90);
     const worstId = sortedRisk[0]?.id;
     state.items = state.items.map((it) => {

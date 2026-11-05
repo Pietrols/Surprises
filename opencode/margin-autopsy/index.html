@@ -22,7 +22,7 @@
 
     <div class="topbar-controls">
       <label class="scenario-picker">
-        <span>Load Preset Brief</span>
+        <span>Preset Brief</span>
         <select id="scenarioSelect" aria-label="Load preset project brief"></select>
       </label>
       <button class="btn secondary" id="btnAutoSurgery" type="button" title="Automatically cap or phase the top tail-risk scope items">Auto-Shield Top Traps</button>
@@ -41,23 +41,34 @@
         </div>
 
         <div class="form-grid">
-          <label>
-            <span>Project / Client Name</span>
-            <input type="text" id="projectName" value="B2B SaaS Client Portal & ERP Sync">
-          </label>
           <div class="row-2">
             <label>
-              <span>Fixed Quote Price ($)</span>
-              <input type="number" id="quotePrice" min="500" step="250" value="18500">
+              <span>Project / Client Name</span>
+              <input type="text" id="projectName" value="B2B SaaS Client Portal & ERP Sync">
             </label>
             <label>
-              <span>Target Rate Floor ($/hr)</span>
-              <input type="number" id="targetRate" min="20" step="5" value="150">
+              <span>Currency</span>
+              <select id="currencySelect">
+                <option value="USD">USD ($)</option>
+                <option value="ZMW">ZMW (K)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
             </label>
           </div>
           <div class="row-2">
             <label>
-              <span>Pass-Through Costs ($)</span>
+              <span>Initial Fixed Quote</span>
+              <input type="number" id="quotePrice" min="100" step="250" value="18500">
+            </label>
+            <label>
+              <span>Target Rate Floor (/hr)</span>
+              <input type="number" id="targetRate" min="10" step="5" value="150">
+            </label>
+          </div>
+          <div class="row-2">
+            <label>
+              <span>Pass-Through Costs</span>
               <input type="number" id="hardCost" min="0" step="100" value="500">
             </label>
             <label>
@@ -104,30 +115,30 @@
             <p id="verdictSub">Comparing paper estimate against log-normal scope-drift distribution.</p>
           </div>
           <div class="safe-bid-box">
-            <span class="safe-bid-label">Recommended p90-Safe Quote</span>
-            <strong class="safe-bid-val" id="safeBidVal">$--</strong>
+            <span class="safe-bid-label">Recommended p90-Safe Phase-1 Quote</span>
+            <strong class="safe-bid-val" id="safeBidVal">--</strong>
             <span class="safe-bid-note" id="safeBidNote">at target rate floor</span>
           </div>
         </div>
 
         <div class="metrics-strip">
           <div class="metric-tile">
-            <span class="m-label">Paper Estimate (Base)</span>
+            <span class="m-label">Phase-1 Paper Estimate</span>
             <strong class="m-val" id="mBaseHours">-- hrs</strong>
-            <span class="m-sub" id="mPaperRate">$--/hr on paper</span>
+            <span class="m-sub" id="mPaperRate">--/hr on paper</span>
           </div>
           <div class="metric-tile">
             <span class="m-label">Expected Effort (p50)</span>
             <strong class="m-val" id="mP50Hours">-- hrs</strong>
-            <span class="m-sub" id="mP50Rate">$--/hr realized</span>
+            <span class="m-sub" id="mP50Rate">--/hr realized</span>
           </div>
           <div class="metric-tile">
             <span class="m-label">Tail-Risk Effort (p90)</span>
             <strong class="m-val" id="mP90Hours">-- hrs</strong>
-            <span class="m-sub" id="mP90Rate">$--/hr realized</span>
+            <span class="m-sub" id="mP90Rate">--/hr realized</span>
           </div>
           <div class="metric-tile">
-            <span class="m-label">Underwater Risk (&lt; Target $/hr)</span>
+            <span class="m-label">Underwater Risk (&lt; Target /hr)</span>
             <strong class="m-val" id="mProbUnder">--%</strong>
             <span class="m-sub" id="mShieldSaved">--</span>
           </div>
@@ -154,7 +165,7 @@
         <div class="card-head">
           <div>
             <h2>Interactive Scope Surgery &amp; Contractual Mode</h2>
-            <p class="hint">Switch risky items from <strong>Core Fixed</strong> to <strong>Capped Allowance (+15% cap)</strong> or <strong>Phase-2 Option</strong> to see live margin recovery.</p>
+            <p class="hint"><strong>Capped Allowance</strong> caps Phase-1 hours at 1.15x base (excess stops or bills T&amp;M). <strong>Phase-2 Option</strong> carves both the item's hours and its proportional share of the Phase-1 quote into a separate Phase-2 option.</p>
           </div>
         </div>
         <div class="table-wrap">

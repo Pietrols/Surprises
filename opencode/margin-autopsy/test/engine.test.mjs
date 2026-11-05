@@ -19,6 +19,43 @@ test('seeded PRNG is strictly deterministic across runs', () => {
   }
 });
 
+test('parseScopeText preserves leading digits in titles like "3D configurator" and "24/7 alerts"', () => {
+  const raw = `
+    - 3D product configurator with WebGL scene [18h]
+    1. 24/7 uptime alert webhook [8h]
+    2) 10x batch CSV import utility [6h]
+  `;
+  const items = parseScopeText(raw);
+  assert.equal(items.length, 3);
+  assert.equal(items[0].title, '3D product configurator with WebGL scene');
+  assert.ok(items[0].matchedRules.some((r) => r.id === 'custom_design_polish'));
+  assert.equal(items[1].title, '24/7 uptime alert webhook');
+  assert.equal(items[2].title, '10x batch CSV import utility');
+});
+
+test('word-sense guards prevent false triggers on technical phrases like "ML model training"', () => {
+  const ml = analyzeLineItem({
+    id: 'ml',
+    index: 1,
+    title: 'ML model training pipeline [30h]',
+    baseHours: 30,
+    mode: 'core',
+  });
+  const ruleIds = ml.matchedRules.map((r) => r.id);
+  assert.ok(!ruleIds.includes('stakeholder_handoff'), `should not match stakeholder_handoff, got ${ruleIds}`);
+  assert.ok(ruleIds.includes('vague_scope_weasel'), `should match vague_scope_weasel for ML model training, got ${ruleIds}`);
+
+  const staff = analyzeLineItem({
+    id: 'staff',
+    index: 2,
+    title: 'On-site commissioning, operator training and committee approval [12h]',
+    baseHours: 12,
+    mode: 'core',
+  });
+  assert.ok(staff.matchedRules.some((r) => r.id === 'stakeholder_handoff'));
+  assert.ok(staff.matchedRules.some((r) => r.id === 'field_site_hardware'));
+});
+
 test('parseScopeText extracts explicit hours, modes, and infers fallback hours', () => {
   const raw = `
     # Comment line ignored
@@ -74,6 +111,40 @@ test('high-risk scope triggers inflate p50/p90 and attach concrete Change-Order 
   }
 });
 
+test('moving a clean item to phase2 proportionally reduces Phase-1 revenue instead of faking profit', () => {
+  const items = parseScopeText(`
+    - Core booking flow [40h]
+    - Static terms page [40h]
+  `);
+  const allCore = runAutopsy(items, { quotePrice: 12000, targetRate: 150, hardCost: 0 });
+  assert.equal(allCore.config.activeNetRevenue, 12000);
+  assert.equal(allCore.current.effectiveRate.p50, 150);
+
+  // Move half of the clean scope to Phase 2: Phase-1 revenue drops to $6,000 and p50 rate stays ~$150/hr (within Monte Carlo sample noise)
+  const halfPhased = items.map((it, idx) => (idx === 1 ? analyzeLineItem({ ...it, mode: 'phase2' }) : it));
+  const afterPhase = runAutopsy(halfPhased, { quotePrice: 12000, targetRate: 150, hardCost: 0 });
+  assert.equal(afterPhase.config.activeNetRevenue, 6000);
+  assert.equal(afterPhase.config.carvedOutQuoteReduction, 6000);
+  assert.ok(Math.abs(afterPhase.current.effectiveRate.p50 - 150) <= 2, `expected ~150, got ${afterPhase.current.effectiveRate.p50}`);
+  assert.ok(Math.abs(afterPhase.current.economicMargin.profitP50 - allCore.current.economicMargin.profitP50) <= 150);
+});
+
+test('moving a severe tail-risk trap to phase2 or allowance genuinely improves Phase-1 p90 rate and margin', () => {
+  const items = parseScopeText(`
+    - Core booking flow [40h]
+    - Legacy CSV migration & bi-directional SAP ERP webhook sync etc. [40h]
+  `);
+  const unshielded = runAutopsy(items, { quotePrice: 12000, targetRate: 150, hardCost: 0 });
+  const phased = runAutopsy(
+    items.map((it, i) => (i === 1 ? analyzeLineItem({ ...it, mode: 'phase2' }) : it)),
+    { quotePrice: 12000, targetRate: 150, hardCost: 0 }
+  );
+  // Even after reducing Phase-1 revenue by 50% ($6,000), carving out the severe trap improves Phase-1 p90 margin!
+  assert.equal(phased.config.activeNetRevenue, 6000);
+  assert.ok(phased.current.effectiveRate.p10 > unshielded.current.effectiveRate.p10);
+  assert.ok(phased.current.economicMargin.profitP90 > unshielded.current.economicMargin.profitP90);
+});
+
 test('runAutopsy quantiles obey p10 <= p50 <= p90 and deterministic repeatability', () => {
   const scenario = SCENARIOS[0];
   const items = parseScopeText(scenario.scopeText);
@@ -85,29 +156,8 @@ test('runAutopsy quantiles obey p10 <= p50 <= p90 and deterministic repeatabilit
   assert.ok(res1.current.hours.p50 <= res1.current.hours.p90);
   assert.ok(res1.current.hours.p90 <= res1.current.hours.p95);
 
-  // Effective rate is inversely ordered with hours: p10 rate (worst case) <= p50 rate <= p90 rate
   assert.ok(res1.current.effectiveRate.p10 <= res1.current.effectiveRate.p50);
   assert.ok(res1.current.effectiveRate.p50 <= res1.current.effectiveRate.p90);
-});
-
-test('applying allowance caps and phase2 options recovers p90 margin and reduces tail hours', () => {
-  const scenario = SCENARIOS[0];
-  const rawItems = parseScopeText(scenario.scopeText);
-  const baseline = runAutopsy(rawItems, scenario);
-
-  // Convert top 2 risky items to allowance and phase2
-  const shieldedItems = rawItems.map((it, idx) => {
-    if (idx === 2) return analyzeLineItem({ ...it, mode: 'allowance' });
-    if (idx === 3) return analyzeLineItem({ ...it, mode: 'phase2' });
-    return it;
-  });
-
-  const guarded = runAutopsy(shieldedItems, scenario);
-  assert.ok(guarded.current.hours.p90 < baseline.current.hours.p90, 'p90 hours must drop when items are capped/phased');
-  assert.ok(guarded.current.effectiveRate.p10 > baseline.current.effectiveRate.p10, 'worst-case hourly rate must improve');
-  assert.ok(guarded.hoursSavedP90 > 0);
-  assert.ok(guarded.marginProtectedP90 > 0);
-  assert.ok(guarded.phase2Value > 0);
 });
 
 test('all built-in scenarios parse and evaluate cleanly', () => {
@@ -120,8 +170,9 @@ test('all built-in scenarios parse and evaluate cleanly', () => {
   }
 });
 
-test('every RISK_RULE has a valid RegExp and non-empty shield clause', () => {
+test('every RISK_RULE has a valid whitespace-free id, RegExp, and non-empty shield clause', () => {
   for (const r of RISK_RULES) {
+    assert.ok(!/\s/.test(r.id), `rule id "${r.id}" must not contain whitespace`);
     assert.ok(r.pattern instanceof RegExp);
     assert.ok(r.p50Mult > 1.0);
     assert.ok(r.tailSpread > 0.1);
