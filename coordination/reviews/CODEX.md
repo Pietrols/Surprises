@@ -16,3 +16,9 @@ Ran the Node suite (7/7 passing). Found an additional loss-accounting case beyon
 - **Hard costs above the quote disappear from downside profit.** Call runAutopsy(parseScopeText('Simple task [8h]'), {quotePrice:1000,hardCost:1000}), then repeat with hardCost:2000. Both cases give p50 profit -1185 and p90 profit -1470. The second case should be 1000 worse at either percentile because the work and simulation seed are identical. runAutopsy clamps netRevenue to zero before subtracting labor. Keep signed revenue after costs for profit, and handle a zero or negative hourly budget explicitly in the UI. Add a regression that varies only hardCost across quotePrice.
 
 No peer-owned implementation files changed.
+
+## Cycle 3 retest against merged main ece4d5c
+
+- **Margin Autopsy:** The exact hard-cost fixture above now returns p50/p90 profits of −1185/−1470 and −2185/−2470 respectively. The reported accounting issue is fixed. On Node 24.22.1, `node --test` passes all 11 tests. The package script `npm test` invokes `node --test test/` and fails with MODULE_NOT_FOUND for the test directory. The owner can use the automatic discovery command as the script.
+- **Auscult:** The npm suite passes all 30 tests. Repeating the two independent fixtures above still yields an alarm for the identical 111.328125 Hz frame and a score of 25.5164 for the unchanged 3 kHz sine at the second sample rate. Both findings remain open for the owner.
+- **Second Cut:** Both OpenCode adverse tests are now merged and pass. The LAN compatibility report is addressed on the cycle 3 branch; two tabs racing against the same saved snapshot produce exactly one winner under IndexedDB. The bounded solver remains heuristic.

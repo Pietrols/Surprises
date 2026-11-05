@@ -1,3 +1,4 @@
+import {createStorage} from './storage.js';
 import {tools,checkSettings} from './domain.js';
 import {parseStockText,validateInventory,commitBuild,undoBuild} from './inventory.js';
 import {renderPacket} from './packet.js';
@@ -21,31 +22,40 @@ function validateState(data) {
   }
   return data;
 }
-function load() {
+const storage = createStorage(key, load);
+let loadSequence = 0;
+async function load() {
+  const sequence = ++loadSequence;
   try {
-    raw=localStorage.getItem(key);
+    const snapshot = await storage.read();
+    if (sequence !== loadSequence) return;
+    raw = snapshot;
     state=raw===null?structuredClone(sample):validateState(JSON.parse(raw));
     blocked=false; render();
   } catch(e) {
+    if (sequence !== loadSequence) return;
     blocked=true; worker?.terminate(); plans=[]; $('packet').replaceChildren();
     $('stock').replaceChildren(); $('choose').hidden=$('planActions').hidden=true;
     $('undo').disabled=true; $('status').textContent='Inventory could not be loaded.';
     $('notice').textContent=e.message+' Export the original data or import a valid backup to recover.';
   }
 }
-function mutate(update,{recover=false}={}) {
-  // Serialize read/compare/write across tabs. A stale screen must reload before editing.
-  const apply=()=>{
+async function mutate(update,{recover=false}={}) {
+  try {
     if(blocked && !recover) throw Error('Import a valid backup first.');
-    const current=localStorage.getItem(key);
-    if(current!==raw) {load();throw Error('Inventory changed in another tab. Review the updated data and retry.');}
-    const next=validateState(update(structuredClone(state)));
-    const encoded=JSON.stringify(next);
-    localStorage.setItem(key,encoded);
-    state=next;raw=encoded;blocked=false;$('notice').textContent='';render();
-  };
-  if(!navigator.locks) { $('notice').textContent='Saving requires HTTPS or localhost and browser Web Locks support.';return; }
-  navigator.locks.request(key,apply).catch(e=>{$('notice').textContent=e.message;});
+    const expected = raw;
+    const next = validateState(update(structuredClone(state)));
+    if (!await storage.replace(expected, JSON.stringify(next))) {
+      await load();
+      throw Error('Inventory changed. Review the latest inventory and retry.');
+    }
+    await load();
+    $('notice').textContent='';
+    return true;
+  } catch(error) {
+    $('notice').textContent=error.message;
+    return false;
+  }
 }
 function render() {
   $('stock').replaceChildren();
@@ -85,13 +95,40 @@ function show() {
   if(p) renderPacket($('packet'),p,state.stocks,state.settings);
 }
 $('plans').onchange=show;
-$('add').onsubmit=e=>{
-  e.preventDefault();
-  mutate(data=>{
-    const extra=parseStockText($('sizes').value,{thickness:Math.round(Number($('thickness').value)*10),
-      material:$('material').value,grain:$('grain').value,allowRotation:$('rotate').checked});
+const measures = ['width','height','quantity'].map($);
+for (const radio of document.querySelectorAll('[name=entry]')) {
+  radio.onchange = () => {
+    const numeric = radio.value === 'measure';
+    $('measure').hidden = !numeric;
+    $('paste').hidden = numeric;
+    $('sizes').disabled = numeric;
+    for (const field of measures) field.disabled = !numeric;
+    $(numeric ? 'width' : 'sizes').focus();
+    $('added').textContent = '';
+  };
+}
+$('add').onsubmit=async event=>{
+  event.preventDefault();
+  const numeric = !$('measure').hidden;
+  const entry = numeric ? measures.map(field=>field.value).join('x') : $('sizes').value;
+  let count;
+  const saved = await mutate(data=>{
+    const extra = parseStockText(entry,{
+      thickness:Math.round(Number($('thickness').value)*10),material:$('material').value,
+      grain:$('grain').value,allowRotation:$('rotate').checked
+    },data.stocks);
+    count = extra.length;
     return {...data,stocks:[...data.stocks,...extra],transaction:null};
   });
+  if (!saved) return;
+  $('added').textContent = 'Added '+count+(count === 1 ? ' piece.' : ' pieces.');
+  if (numeric && !$('measure').hidden) {
+    $('width').focus();
+    $('width').select();
+  } else if (!numeric && $('sizes').value === entry) {
+    $('sizes').value = '';
+    $('sizes').focus();
+  }
 };
 function setup() {
   mutate(data=>{
@@ -125,7 +162,7 @@ $('import').onchange=async e=>{
     if(confirm('Replace the current inventory and settings with this backup?')) mutate(()=>next,{recover:true});
   } catch(err) {$('notice').textContent='Import failed: '+err.message;}
 };
-window.addEventListener('storage',e=>{if(e.key===key || e.key===null) load();});
+window.addEventListener('pageshow',event=>{ if(event.persisted) load(); });
 load();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(()=>{
