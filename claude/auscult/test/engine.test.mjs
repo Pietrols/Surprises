@@ -221,6 +221,69 @@ test('rolling element defect is found at 2x BSF and its cage sidebands are not r
   }
 });
 
+test('16 kHz devices: invalid bands survive a save/reload and faults are still named', () => {
+  const sr = 16000, c = makeContext(sr);
+  assert.ok(c.bands.some((b) => b.valid === false), 'expected bands above Nyquist to be marked invalid');
+  const s = new MachineSim({ sr, ...MACHINE, seed: 1 });
+  const bb = new BaselineBuilder(c);
+  for (let i = 0; i < 60; i++) bb.add(analyzeFrame(s.render(FRAME), c));
+  const reloaded = JSON.parse(JSON.stringify(bb.build())); // NaN becomes null in JSON
+  const mon = (fault, sev) => {
+    const sim = new MachineSim({ sr, ...MACHINE, seed: 9 });
+    sim.setFault(fault, sev);
+    const acc = new Accumulator(30);
+    for (let i = 0; i < 30; i++) acc.push(analyzeFrame(sim.render(FRAME), c));
+    return assess(acc.average(), reloaded, c, MACHINE);
+  };
+  const healthy = mon('none', 0);
+  assert.equal(healthy.status, 'healthy');
+  assert.ok(Number.isFinite(healthy.score));
+  assert.equal(mon('bearing_outer', 0.7).findings[0].code, 'bearing_BPFO');
+});
+
+test('a 48 kHz baseline monitored on a 16 kHz device: no false alarm, faults still caught', () => {
+  const reloaded = JSON.parse(JSON.stringify(baseline));
+  const sr = 16000, c = makeContext(sr);
+  const mon = (fault, sev) => {
+    const sim = new MachineSim({ sr, ...MACHINE, seed: 9 });
+    sim.setFault(fault, sev);
+    const acc = new Accumulator(30);
+    for (let i = 0; i < 30; i++) acc.push(analyzeFrame(sim.render(FRAME), c));
+    return assess(acc.average(), reloaded, c, MACHINE);
+  };
+  assert.equal(mon('none', 0).status, 'healthy');
+  assert.equal(mon('bearing_outer', 0.7).findings[0].code, 'bearing_BPFO');
+});
+
+// Independent fixtures from Codex's review (coordination/reviews/CODEX.md), kept verbatim in spirit.
+const pureSine = (sr, hz, a) => Float64Array.from({ length: FRAME }, (_, i) => a * Math.sin((2 * Math.PI * hz * i) / sr));
+
+test('Codex fixture 1: an identical frame never alarms (111.328125 Hz, lineHz 50)', () => {
+  const c = makeContext(48000);
+  const f = analyzeFrame(pureSine(48000, 111.328125, 0.05), c);
+  const bb = new BaselineBuilder(c);
+  for (let i = 0; i < 20; i++) bb.add(f);
+  const base = JSON.parse(JSON.stringify(bb.build()));
+  for (const m of [{ lineHz: 50 }, { lineHz: 50, rpm: 3340 }, { lineHz: 50, ...MACHINE }]) {
+    const a = assess(f, base, c, m);
+    assert.equal(a.status, 'healthy', `${JSON.stringify(m)}: ${a.findings.map((x) => x.evidence).join(' | ')}`);
+    assert.equal(a.findings.length, 0);
+  }
+});
+
+test('Codex fixture 2: the same 3 kHz tone scores as unchanged at 48 and 16 kHz', () => {
+  const c48 = makeContext(48000), c16 = makeContext(16000);
+  const f48 = analyzeFrame(pureSine(48000, 3000, 0.05), c48);
+  const bb = new BaselineBuilder(c48);
+  for (let i = 0; i < 20; i++) bb.add(f48);
+  const base = bb.build();
+  const f16 = analyzeFrame(pureSine(16000, 3000, 0.05), c16);
+  const idx = (c) => c.bands.findIndex((b) => b.fLo <= 3000 && b.fHi > 3000);
+  assert.equal(idx(c48), idx(c16), 'tone must fall in the same band index at both rates');
+  const s = scoreFrame(f16, base);
+  assert.ok(s.score < base.calib.warn, `score ${s.score.toFixed(2)} should be below warn ${base.calib.warn}`);
+});
+
 test('baseline is JSON serialisable and survives a round trip', () => {
   const copy = JSON.parse(JSON.stringify(baseline));
   const sim = new MachineSim({ sr: SR, ...MACHINE, seed: 5 });

@@ -4,7 +4,7 @@
 
 import {
   makeBands, extractFeatures, envelopeAnalysis, bearingFrequencies,
-  peakNear, localFloor, valueAtHz, topPeaks,
+  peakNear, localFloor, topPeaks,
 } from './dsp.js';
 
 export const FRAME = 8192;
@@ -189,6 +189,8 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
   const zb = scored.zBands;
   const fr = machine.rpm > 0 ? machine.rpm / 60 : 0;
   const tol = Math.max(1.5 * (sr / n), fr * 0.03);
+  // Every "now vs baseline" comparison uses the same peak search (peakNear, same centre and tolerance)
+  // on both spectra, so an unchanged sound always compares equal, whatever bin the peak falls in.
   const add = (severity, title, evidence, action, code) => findings.push({ severity, title, evidence, action, code });
 
   // Running speed orders
@@ -197,7 +199,7 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
     for (const h of [1, 2, 3, 4, 5, 6]) {
       const now = peakNear(avg.spectrum, sr, n, h * fr, tol).value;
       let base = 0;
-      for (let d = -tol; d <= tol; d += sr / n / 2) base = Math.max(base, valueAtHz(baseline.spectrum, bsr, bn, h * fr + d));
+      base = peakNear(baseline.spectrum, bsr, bn, h * fr, tol).value;
       orders[h] = { now, base, rise: dB(now, base) };
     }
     const o = orders;
@@ -233,7 +235,7 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
     const etol = 2 * (sr / n);
     const now = peakNear(avg.spectrum, sr, n, f2, etol).value;
     let base = 0;
-    for (let d = -etol; d <= etol; d += sr / n / 2) base = Math.max(base, valueAtHz(baseline.spectrum, bsr, bn, f2 + d));
+    base = peakNear(baseline.spectrum, bsr, bn, f2, etol).value;
     const rise = dB(now, base);
     if (rise > 8) {
       add(rise > 14 ? 3 : 2, 'Electrical fault signature',
@@ -257,7 +259,7 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
       const p1 = peakNear(avg.envelope, sr, n, hz, etol);
       const floor1 = localFloor(avg.envelope, sr, n, hz, 45, etol + 2);
       let base1 = 0;
-      for (let d = -etol; d <= etol; d += sr / n / 2) base1 = Math.max(base1, valueAtHz(baseline.envelope, bsr, bn, hz + d));
+      base1 = peakNear(baseline.envelope, bsr, bn, hz, etol).value;
       const p2 = peakNear(avg.envelope, sr, n, 2 * hz, etol * 2);
       const floor2 = localFloor(avg.envelope, sr, n, 2 * hz, 45, 2 * etol + 2);
       const snr = p1.value / (floor1 + 1e-12);
@@ -298,7 +300,7 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
     const peaks = topPeaks(avg.envelope, sr, n, { count: 3, minHz: 8, maxHz: 600 });
     for (const p of peaks) {
       const floor = localFloor(avg.envelope, sr, n, p.hz, 45, 6);
-      const base = valueAtHz(baseline.envelope, bsr, bn, p.hz);
+      const base = peakNear(baseline.envelope, bsr, bn, p.hz, 1.5 * (sr / n)).value;
       if (p.value / (floor + 1e-12) > 5 && p.value / (base + 1e-12) > 3) {
         const ord = fr > 0 ? ` (${(p.hz / fr).toFixed(2)}x running speed)` : '';
         const nonInt = fr > 0 && Math.abs(p.hz / fr - Math.round(p.hz / fr)) > 0.15;
