@@ -140,3 +140,27 @@ test('valueAtHz linear interpolation is exact on linear ramps and out-of-bounds 
   assert.equal(valueAtHz(arr, sr, n, -5), 0);
   assert.equal(valueAtHz(arr, sr, n, 900), 0);
 });
+
+test('identical sound at 111.328125 Hz never triggers a false electrical alarm (Codex fixture #1)', async () => {
+  const { makeContext, analyzeFrame, BaselineBuilder, assess } = await import('../js/model.js');
+  const ctx = makeContext(48000);
+  const frame = new Float64Array(8192);
+  for (let i = 0; i < 8192; i++) frame[i] = 0.05 * Math.sin((2 * Math.PI * 111.328125 * i) / 48000);
+  const f = analyzeFrame(frame, ctx);
+  const bb = new BaselineBuilder(ctx);
+  for (let i = 0; i < 20; i++) bb.add(f);
+  const baseline = bb.build();
+  const res = assess(f, baseline, ctx, { lineHz: 50 });
+  assert.equal(res.status, 'healthy', `expected healthy on identical frame, got ${res.status}: ${res.findings.map((x) => x.title).join(', ')}`);
+  assert.equal(res.findings.length, 0);
+});
+
+test('makeBands keeps physical band frequencies aligned across 48 kHz and 16 kHz (Codex fixture #2)', () => {
+  const b48 = makeBands(48000, 8192);
+  const b16 = makeBands(16000, 8192);
+  const idx48 = b48.findIndex((b) => b.valid && b.fLo <= 3000 && b.fHi > 3000);
+  const idx16 = b16.findIndex((b) => b.valid && b.fLo <= 3000 && b.fHi > 3000);
+  assert.equal(idx48, idx16, `3 kHz tone must land in the same band index at 48 kHz (${idx48}) and 16 kHz (${idx16})`);
+  assert.equal(b16[23].valid, false, 'top bands above 8 kHz Nyquist at 16 kHz must be marked invalid rather than compressed');
+});
+

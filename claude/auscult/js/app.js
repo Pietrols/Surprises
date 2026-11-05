@@ -718,3 +718,6 @@ wire();
 render();
 // Fonts can change chart label metrics once loaded.
 document.fonts?.ready.then(() => { if (current()) queueDraw(); else drawWelcome(); });
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}

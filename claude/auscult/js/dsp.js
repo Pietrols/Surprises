@@ -91,17 +91,22 @@ export const hzBin = (hz, sr, n) => Math.round((hz * n) / sr);
  * Bands are defined in Hz, so features stay comparable across sample rates.
  */
 export function makeBands(sr, n, { count = 24, fmin = 20, fmax = 12000 } = {}) {
-  const top = Math.min(fmax, sr / 2 - sr / n);
+  const nyquist = sr / 2 - sr / n;
   const bands = [];
   let prevHi = Math.max(1, hzBin(fmin, sr, n));
   for (let i = 0; i < count; i++) {
-    const fHi = fmin * Math.pow(top / fmin, (i + 1) / count);
+    // Anchor band edges to fixed physical frequencies [fmin, fmax] regardless of sample rate
+    // so band indices always represent the same physical Hz range across devices.
+    const fHiTarget = fmin * Math.pow(fmax / fmin, (i + 1) / count);
+    const fLoTarget = fmin * Math.pow(fmax / fmin, i / count);
+    const valid = fLoTarget < nyquist;
+    const clampedHiHz = Math.min(fHiTarget, nyquist);
     const lo = prevHi;
-    const hi = Math.max(lo + 1, hzBin(fHi, sr, n));
-    const fLo = binHz(lo, sr, n);
-    const fH = binHz(hi, sr, n);
-    bands.push({ lo, hi, fLo, fHi: fH, fc: Math.sqrt(Math.max(fLo, 1) * fH) });
-    prevHi = hi;
+    const hi = valid ? Math.max(lo + 1, hzBin(clampedHiHz, sr, n)) : lo;
+    const fLo = valid ? binHz(lo, sr, n) : fLoTarget;
+    const fH = valid ? binHz(hi, sr, n) : fHiTarget;
+    bands.push({ lo, hi, fLo, fHi: fH, fc: Math.sqrt(Math.max(fLoTarget, 1) * fHiTarget), valid });
+    if (valid) prevHi = hi;
   }
   return bands;
 }
@@ -147,6 +152,10 @@ export function extractFeatures(frame, sr, bands) {
 
   const bandDb = new Float64Array(bands.length);
   for (let b = 0; b < bands.length; b++) {
+    if (bands[b].valid === false) {
+      bandDb[b] = NaN;
+      continue;
+    }
     let s = 0;
     for (let k = bands[b].lo; k < bands[b].hi && k < spectrum.length; k++) s += spectrum[k] * spectrum[k];
     bandDb[b] = 10 * Math.log10(s + 1e-20);

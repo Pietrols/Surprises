@@ -113,16 +113,20 @@ export class BaselineBuilder {
 }
 
 function rawScore(vec, baseline) {
-  const z = vec.map((x, d) => (x - baseline.mu[d]) / baseline.sd[d]);
+  const z = vec.map((x, d) => {
+    if (!Number.isFinite(x) || !Number.isFinite(baseline.mu[d])) return 0;
+    return (x - baseline.mu[d]) / baseline.sd[d];
+  });
   let num = 0, den = 0;
   for (let d = 0; d < z.length; d++) {
+    if (!Number.isFinite(vec[d]) || !Number.isFinite(baseline.mu[d])) continue;
     let zz = z[d];
     if (d < SCALARS.length && SCALARS[d].oneSided) zz = Math.max(0, zz);
     const w = d < SCALARS.length ? SCALARS[d].weight : 1;
     num += w * zz * zz;
     den += w;
   }
-  return { score: Math.sqrt(num / den), z };
+  return { score: den > 0 ? Math.sqrt(num / den) : 0, z };
 }
 
 /** Map an anomaly score to a 0..100 health index and a status. */
@@ -226,8 +230,10 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
   const lineHz = machine.lineHz || 50;
   {
     const f2 = 2 * lineHz;
-    const now = peakNear(avg.spectrum, sr, n, f2, 2 * sr / n).value;
-    const base = valueAtHz(baseline.spectrum, bsr, bn, f2);
+    const etol = 2 * (sr / n);
+    const now = peakNear(avg.spectrum, sr, n, f2, etol).value;
+    let base = 0;
+    for (let d = -etol; d <= etol; d += sr / n / 2) base = Math.max(base, valueAtHz(baseline.spectrum, bsr, bn, f2 + d));
     const rise = dB(now, base);
     if (rise > 8) {
       add(rise > 14 ? 3 : 2, 'Electrical fault signature',
@@ -250,7 +256,8 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
       const etol = Math.max(1.5 * (sr / n), hz * 0.02);
       const p1 = peakNear(avg.envelope, sr, n, hz, etol);
       const floor1 = localFloor(avg.envelope, sr, n, hz, 45, etol + 2);
-      const base1 = valueAtHz(baseline.envelope, bsr, bn, hz);
+      let base1 = 0;
+      for (let d = -etol; d <= etol; d += sr / n / 2) base1 = Math.max(base1, valueAtHz(baseline.envelope, bsr, bn, hz + d));
       const p2 = peakNear(avg.envelope, sr, n, 2 * hz, etol * 2);
       const floor2 = localFloor(avg.envelope, sr, n, 2 * hz, 45, 2 * etol + 2);
       const snr = p1.value / (floor1 + 1e-12);

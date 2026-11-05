@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surprises — Three-Agent Engineering Suite</title>
+  <meta name="description" content="Three standalone, local-first engineering and commercial tools built and cross-reviewed by Claude, Codex, and OpenCode.">
+  <style>
+    :root {
+      --bg: #0B0F17;
+      --card: #131B2E;
+      --border: #26334D;
+      --ink: #F1F5F9;
+      --muted: #94A3B8;
+      --blue: #38BDF8;
+      --amber: #F59E0B;
+      --emerald: #10B981;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #F4F6F9;
+        --card: #FFFFFF;
+        --border: #DCE3EC;
+        --ink: #0F172A;
+        --muted: #475569;
+        --blue: #0284C7;
+        --amber: #D97706;
+        --emerald: #059669;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.6 var(--font);
+      padding: 40px 20px 64px;
+    }
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+    }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--emerald);
+      font-weight: 700;
+    }
+    h1 {
+      margin: 6px 0 10px;
+      font-size: clamp(26px, 4vw, 36px);
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0;
+      max-width: 760px;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+    .b-claude { color: var(--blue); }
+    .b-codex { color: var(--amber); }
+    .b-opencode { color: var(--emerald); }
+    .card h2 {
+      margin: 0 0 6px;
+      font-size: 21px;
+    }
+    .card p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .meta {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+    .meta li { margin-bottom: 4px; }
+    .btn {
+      display: inline-block;
+      text-align: center;
+      text-decoration: none;
+      background: var(--ink);
+      color: var(--bg);
+      font-weight: 600;
+      font-size: 14px;
+      padding: 10px 16px;
+      border-radius: 8px;
+    }
+    .btn:hover { opacity: 0.9; }
+    footer {
+      margin-top: 36px;
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="eyebrow">Three-Agent Collaborative Build · 56/56 Automated Tests Passing</span>
+      <h1>Physical Maintenance, Shop Fabrication &amp; Deal Economics</h1>
+      <p>Three complete, zero-dependency, local-first applications built and cross-reviewed by Claude, Codex, and OpenCode. Click any tool below to open it directly in your browser.</p>
+    </header>
+
+    <main class="grid">
+      <article class="card">
+        <div>
+          <span class="badge b-claude">01 · Industrial Maintenance (Claude + OpenCode)</span>
+          <h2>Auscult</h2>
+          <p>Acoustic condition screening for rotating machines from a phone microphone. Learns a machine's healthy baseline, tracks a 0–100 health index on the A–D zone strip, and diagnoses bearing defects (BPFO, BPFI, 2x BSF, FTF), imbalance, misalignment, looseness, cavitation, and electrical hum.</p>
+          <ul class="meta">
+            <li>• Built-in induction motor &amp; bearing fault simulator</li>
+            <li>• Live microphone + WAV/MP3/M4A recording analyzer</li>
+            <li>• Printable A4 client condition report &amp; offline PWA</li>
+          </ul>
+        </div>
+        <a class="btn" href="./claude/auscult/index.html">Launch Auscult →</a>
+      </article>
+
+      <article class="card">
+        <div>
+          <span class="badge b-codex">02 · Workshop Fabrication (Codex + OpenCode)</span>
+          <h2>Second Cut</h2>
+          <p>Reverse production planner for sheet offcuts. Enter the awkward pieces of plywood or MDF you already have and discover verified objects you can make right now, backed by an independent guillotine cut-tree validator and reversible inventory transactions.</p>
+          <ul class="meta">
+            <li>• Shorthand offcut entry (e.g. <code>500x300x2, 420x180</code>)</li>
+            <li>• Interactive SVG sheet-to-part layout &amp; cut sequence</li>
+            <li>• Printable shop job packet &amp; atomic build/undo</li>
+          </ul>
+        </div>
+        <a class="btn" href="./codex/second-cut/index.html">Launch Second Cut →</a>
+      </article>
+
+      <article class="card">
+        <div>
+          <span class="badge b-opencode">03 · Commercial Deal Economics (OpenCode)</span>
+          <h2>Margin Autopsy</h2>
+          <p>Deterministic Fixed-Bid &amp; Scope-Drift X-Ray. Paste a client scope or feature list to expose the 2 or 3 deliverables driving tail-risk overruns, simulate 2,000 log-normal effort runs, test contractual Scope Surgery, and generate ready-to-paste Change-Order Shields.</p>
+          <ul class="meta">
+            <li>• 4 one-click preset briefs (SaaS, Industrial ZMW, 3D Web, Clean)</li>
+            <li>• Honest Phase-2 revenue carving &amp; Capped Allowances</li>
+            <li>• Printable Client Statement of Work Boundary Schedule</li>
+          </ul>
+        </div>
+        <a class="btn" href="./opencode/margin-autopsy/index.html">Launch Margin Autopsy →</a>
+      </article>
+    </main>
+
+    <footer>
+      <span>All data stays in your browser's local storage. No external servers or API keys required.</span>
+      <span>Verify all suites: <code>npm --prefix claude/auscult test &amp;&amp; npm --prefix codex/second-cut test &amp;&amp; npm --prefix opencode/margin-autopsy test</code></span>
+    </footer>
+  </div>
+</body>
+</html>
