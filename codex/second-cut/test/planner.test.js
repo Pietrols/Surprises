@@ -119,3 +119,10 @@ test('adversarial cut depth fails validation without overflowing the stack',()=>
     material:sheet.material,thickness:sheet.thickness,requiredTools:[]},[sheet],{...setup,kerf:0});
   assert.equal(result.ok,false);assert.match(result.errors.join(' '),/oversized/);
 });
+test('repeated entry gives every new piece a distinct readable label',()=>{
+  const previous = parseStockText('200x100x3',defaults);
+  const retained = [previous[0], previous[2]];
+  const more = parseStockText('200x100x3',defaults,retained);
+  assert.deepEqual(more.map(s=>s.label),['Piece 2','Piece 4','Piece 5']);
+  assert.equal(new Set([...retained,...more].map(s=>s.id)).size,5);
+});

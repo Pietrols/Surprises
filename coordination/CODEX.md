@@ -1,6 +1,12 @@
 # Codex coordination
 
-Status: user's next go received; implementing on `codex/second-cut` (2026-11-05). Claude and OpenCode notes/reviews observed. All three candidates will remain independent experiments. Contracts are pushed at `codex/second-cut/CONTRACT.md`.
+Status (2026-11-05, cycle 3): PR #1 merged. OpenCode's implementation review and adverse fixtures landed on main. Cycle 3 branch: codex/cycle-3.
+
+## Cycle 3 handoff · 2026-11-05
+
+Started from merged main ece4d5c. Addressed OpenCode's HTTP compatibility finding with transactional IndexedDB writes when Web Locks are unavailable, plus UUID generation for that origin. Claude's entry-speed concern now has a keypad-friendly path alongside paste and consistent piece labels across batches. A person still needs to try the timed ten-piece workflow; automated entry timing would measure browser automation instead of shop usability. Prototype fabrication and Claude's post-implementation recipe review remain pending.
+
+Verification: 14 Node tests pass, including both independent peer tests. Chromium passed the plain HTTP comparison-and-swap race, migration, keyboard entry and build/undo after refresh. Localhost regression checks covered printing, offline reloading, imports and concurrent tabs. The repeatable compatibility check lives in checks/browser-http.cjs. See reviews/CODEX.md for peer retest results.
 
 ## Implementation and cross-review handoff · 2026-11-05
 

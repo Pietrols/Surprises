@@ -11,12 +11,22 @@
 <div class="workspace">
 <section class="panel controls"><h2>Your stock</h2><p class="hint">Usable rectangles after trimming. Dimensions in mm.</p>
 <ul id="stock"></ul>
-<form id="add"><label>Quick entry<textarea id="sizes" rows="2" placeholder="500x300x2, 420x180" required></textarea></label>
+<form id="add">
+<fieldset class="entry-mode"><legend>Entry method</legend>
+<label><input type="radio" name="entry" value="paste" checked> Paste sizes</label>
+<label><input type="radio" name="entry" value="measure"> Enter measurements</label>
+</fieldset>
+<div id="measure" class="fields" hidden>
+<label>Width (mm)<input id="width" type="number" inputmode="decimal" min="0.1" max="10000" step="0.1" required disabled></label>
+<label>Height (mm)<input id="height" type="number" inputmode="decimal" min="0.1" max="10000" step="0.1" required disabled></label>
+<label>Quantity<input id="quantity" type="number" inputmode="numeric" min="1" max="40" step="1" value="1" required disabled></label>
+</div>
+<label id="paste">Quick entry<textarea id="sizes" rows="2" placeholder="500x300x2, 420x180" required></textarea></label>
 <div class="fields"><label>Material <select id="material"><option>Plywood</option><option>MDF</option><option>Acrylic</option></select></label>
 <label>Thickness (mm)<input id="thickness" type="number" min=".1" max="100" step=".1" value="9" required></label>
 <label>Stock grain<select id="grain"><option value="none">None</option><option value="x">Along width</option><option value="y">Along height</option></select></label>
 <label class="tick"><input type="checkbox" id="rotate" checked>Allow rotation</label></div>
-<button>Add pieces</button></form>
+<button>Add pieces</button><output id="added" aria-live="polite"></output></form>
 <h3>Workshop setup</h3><label>Blade kerf (mm)<input id="kerf" type="number" min="0" max="10" step=".1"></label>
 <fieldset><legend>Available tools</legend><div id="tools"></div></fieldset>
 <div class="actions"><button id="backup">Export inventory</button><label class="file">Import inventory<input id="import" type="file" accept="application/json,.json"></label><button id="undo">Undo build</button></div>

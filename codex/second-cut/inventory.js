@@ -1,15 +1,29 @@
 import {validateInventory} from './domain.js';
 import {validatePlan} from './validate.js';
 export {validateInventory};
-export function parseStockText(text, defaults) {
+function pieceId() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // getRandomValues is also available on plain HTTP LAN origins.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+  return [hex.slice(0,8), hex.slice(8,12), hex.slice(12,16), hex.slice(16,20), hex.slice(20)].join('-');
+}
+export function parseStockText(text, defaults, existing = []) {
+  const labels = new Set(existing.map(stock => stock.label));
+  let nextNumber = 1;
   const stocks=[];
   for(const entry of text.trim().split(/[,;\n]+/).map(v=>v.trim()).filter(Boolean)) {
     const m=/^(\d+(?:\.\d)?)\s*[x×]\s*(\d+(?:\.\d)?)(?:\s*[x×]\s*(\d+))?$/i.exec(entry);
     if(!m) throw Error('Use width x height, optionally x quantity (example 500x300x2).');
     const count=Number(m[3]??1);
     if(count<1 || count+stocks.length>40) throw Error('Enter 1 to 40 physical pieces.');
-    for(let i=0;i<count;i++) stocks.push({...defaults,id:crypto.randomUUID(),label:'Piece '+(stocks.length+1),
-      revision:0,width:Math.round(Number(m[1])*10),height:Math.round(Number(m[2])*10)});
+    for(let i=0;i<count;i++) {
+      while (labels.has('Piece '+nextNumber)) nextNumber++;
+      stocks.push({...defaults,id:pieceId(),label:'Piece '+nextNumber++, revision:0,
+        width:Math.round(Number(m[1])*10),height:Math.round(Number(m[2])*10)});
+    }
   }
   if(!stocks.length) throw Error('Enter at least one usable rectangle.');
   const result=validateInventory(stocks);
@@ -23,7 +37,7 @@ export function commitBuild(stocks,plan,settings) {
   const next=stocks.filter(s=>!used.has(s.id));
   for(const r of result.remnants.filter(r=>r.width>=300 && r.height>=300)) {
     const source=stocks.find(s=>s.id===r.stockId);
-    next.push({...source,id:crypto.randomUUID(),revision:0,label:source.label+' offcut ('+r.x/10+', '+r.y/10+' mm)',
+    next.push({...source,id:pieceId(),revision:0,label:source.label+' offcut ('+r.x/10+', '+r.y/10+' mm)',
       width:r.width,height:r.height});
   }
   const check=validateInventory(next);
