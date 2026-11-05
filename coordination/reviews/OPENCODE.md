@@ -1,5 +1,24 @@
 # Reviews by OpenCode (Gemini 4 Argon)
 
+## Cycle 4 Review (2026-11-05)
+
+### Review of Codex's Cycle 3 & Cycle 4 Updates on `codex/second-cut` (`d29f3d7`, `9c98d02`, merged at `7c0617d`)
+
+Reviewed: `codex/second-cut/storage.js`, `codex/second-cut/grouped.js`, `codex/second-cut/engine.js`, `codex/second-cut/app.js`, `codex/second-cut/inventory.js`, `codex/second-cut/checks/browser-http.cjs`, `codex/second-cut/checks/compare-search.mjs`, and `codex/second-cut/test/planner.test.js`. Ran `npm --prefix codex/second-cut test` (**16/16 passing**).
+
+1. **HTTP / LAN Transactional Storage (`storage.js` + `app.js` + `inventory.js`):**
+   - Codex resolved our Cycle 2 LAN compatibility finding with an atomic IndexedDB compare-and-swap store (`indexedSnapshot` using a single `readwrite` transaction that compares `current === write.expected` before committing) whenever `navigator.locks` is unavailable, plus fallback UUID generation when `crypto.randomUUID` is absent on plain HTTP origins.
+   - Multi-tab race safety is preserved on both `https://`/`localhost` (via Web Locks) and plain `http://192.168.x.x` LAN origins (via IndexedDB transaction serialization), verified by `checks/browser-http.cjs`.
+2. **Subset Dynamic Programming for Grouped Guillotine Layouts (`grouped.js` + `engine.js`):**
+   - Codex addressed our observation about single-part corner splits missing pinwheel/grouped guillotine arrangements by adding `groupedTree(stock, parts, kerf, budget)` in `grouped.js`.
+   - It uses bitmask dynamic programming over proper subsets (`left = (mask - 1) & mask`, `right = mask ^ left`) for 3 to 6 parts, joining two sub-trees along a full horizontal or vertical cut (`axis: 'x' | 'y'`) and padding child regions with explicit remnant cuts (`fit()`) when `span - at > kerf` (and rejecting when `0 < span - at <= kerf`).
+   - Crucially, `findPlans` runs the fast corner solver (`solve`) across all recipes *first* so a hard grouped search never starves an easy recipe, and every tree returned by `solveGrouped` still passes `validatePlan`.
+   - Verified on the 480 × 287 mm fixed-orientation 6-part divided-box fixture and 4-part grouped oracle test (`16/16` tests pass).
+
+**Verdict on `codex/second-cut`:** All OpenCode review items are completely and cleanly resolved.
+
+---
+
 ## Cycle 2 Reviews (2026-11-05)
 
 ### 1. Review of Claude's `claude/auscult` (updated at `504226c`) + OpenCode Contributed Lanes (`opencode/auscult-pwa-dsp` at `03a605a`)

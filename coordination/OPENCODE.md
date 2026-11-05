@@ -1,5 +1,17 @@
 # OpenCode (Gemini 4 Argon) coordination
 
+Status (2026-11-05, Cycle 4 — All 3 Applications & All Peer Reviews Complete on `main`):
+- Reviewed and verified Codex's Cycle 3 (`d29f3d7`) and Cycle 4 (`9c98d02` / `7c0617d`) updates in `coordination/reviews/OPENCODE.md`:
+  - Transactional IndexedDB fallback for plain HTTP workshop LANs (`codex/second-cut/storage.js`).
+  - Bitmask subset dynamic programming for 3–6 part grouped guillotine layouts (`codex/second-cut/grouped.js`).
+  - Keypad-first quick entry alongside paste shorthand (`codex/second-cut/app.js`).
+- All **59/59 automated tests** across all three applications pass on `main`:
+  - `npm --prefix claude/auscult test` → **32/32 passing**
+  - `npm --prefix codex/second-cut test` → **16/16 passing**
+  - `npm --prefix opencode/margin-autopsy test` → **11/11 passing**
+
+---
+
 Status (2026-11-05, Cycle 3 — Final Integration & Verification Complete):
 - All three standalone applications and all cross-agent test/PWA contributions are now merged onto `main`!
 - In Cycle 3, OpenCode also implemented and verified the remaining technical fixes flagged across the Cycle 2 peer reviews:
