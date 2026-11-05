@@ -241,8 +241,11 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
   let bearingHit = false;
   if (bf) {
     const names = { BPFO: 'Outer race', BPFI: 'Inner race', BSF: 'Rolling element', FTF: 'Cage' };
+    const cands = [];
     for (const key of ['BPFO', 'BPFI', 'BSF', 'FTF']) {
-      const hz = bf[key];
+      // A damaged rolling element strikes the inner and the outer race once per spin revolution,
+      // so its impacts repeat at 2x BSF; that is where its envelope peak usually is.
+      const hz = key === 'BSF' ? 2 * bf.BSF : bf[key];
       if (hz < 5) continue;
       const etol = Math.max(1.5 * (sr / n), hz * 0.02);
       const p1 = peakNear(avg.envelope, sr, n, hz, etol);
@@ -252,16 +255,35 @@ export function diagnose(avg, scored, baseline, ctx, machine = {}) {
       const floor2 = localFloor(avg.envelope, sr, n, 2 * hz, 45, 2 * etol + 2);
       const snr = p1.value / (floor1 + 1e-12);
       const growth = p1.value / (base1 + 1e-12);
-      const harmonic = p2.value / (floor2 + 1e-12) > 2.5;
       if (snr > 4 && growth > 2.5) {
-        bearingHit = true;
-        const sev = snr > 10 && harmonic ? 3 : 2;
-        add(sev, `${names[key]} bearing defect signature`,
-          `Envelope spectrum shows a peak at ${p1.hz.toFixed(1)} Hz matching ${key} (${hz.toFixed(1)} Hz), ${snr.toFixed(1)}x above the local floor and ${growth.toFixed(1)}x baseline${harmonic ? ', with a 2x harmonic' : ''}.`,
-          key === 'FTF'
-            ? 'Cage problems often follow lubrication failure. Check grease condition and plan replacement.'
-            : 'Plan bearing replacement at the next stop. Check lubrication now; increase monitoring to daily.', `bearing_${key}`);
+        cands.push({ key, hz, etol, peakHz: p1.hz, snr, growth, harmonic: p2.value / (floor2 + 1e-12) > 2.5 });
       }
+    }
+    // Arbitration: the strongest candidate is the primary defect. Cage-rate (FTF) sidebands around it,
+    // and the FTF line itself when a rolling element is damaged (the cage carries the ball through the
+    // load zone), are evidence for the primary defect rather than separate faults.
+    cands.sort((a, b) => b.snr - a.snr);
+    const primary = cands[0];
+    const isSideband = (c) => primary && c !== primary &&
+      [1, 2, 3].some((k) => [-1, 1].some((sgn) => Math.abs(c.peakHz - (primary.peakHz + sgn * k * bf.FTF)) <= c.etol + sr / n));
+    const kept = [], folded = [];
+    for (const c of cands) {
+      if (c === primary) kept.push(c);
+      else if ((primary.key === 'BSF' && c.key === 'FTF') || isSideband(c) || c.snr < 0.5 * primary.snr) folded.push(c);
+      else kept.push(c);
+    }
+    for (const c of kept) {
+      bearingHit = true;
+      const sev = c.snr > 10 && c.harmonic ? 3 : 2;
+      const label = c.key === 'BSF' ? '2x BSF' : c.key;
+      const extra = c === primary && folded.length
+        ? ` Related peaks at ${folded.map((f) => `${f.peakHz.toFixed(1)} Hz`).join(', ')} are consistent with cage-rate (FTF ${bf.FTF.toFixed(1)} Hz) modulation of this defect.`
+        : '';
+      add(sev, `${names[c.key]} bearing defect signature`,
+        `Envelope spectrum shows a peak at ${c.peakHz.toFixed(1)} Hz matching ${label} (${c.hz.toFixed(1)} Hz), ${c.snr.toFixed(1)}x above the local floor and ${c.growth.toFixed(1)}x baseline${c.harmonic ? ', with a 2x harmonic' : ''}.${extra}`,
+        c.key === 'FTF'
+          ? 'Cage problems often follow lubrication failure. Check grease condition and plan replacement.'
+          : 'Plan bearing replacement at the next stop. Check lubrication now; increase monitoring to daily.', `bearing_${c.key}`);
     }
   }
   // Repetitive impacts without known bearing geometry (or not matching it)

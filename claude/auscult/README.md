@@ -16,7 +16,7 @@ The insight is that most of the early fault signatures used in vibration analysi
 |---|---|
 | **Learn** | Records 10 to 60 s of the healthy machine and builds a statistical baseline (means and spreads of 31 features, average spectrum and envelope spectrum), then self-calibrates its warn and alarm thresholds from how the healthy sound varies. |
 | **Monitor** | Scores a running 3 second window twice a second, shows the health index and zone, the spectrum against the baseline, the envelope spectrum with bearing defect frequencies marked, and which frequency bands moved. |
-| **Diagnose** | Explainable rules name: imbalance (1x), misalignment (2x), mechanical looseness (harmonic fence), outer race / inner race / rolling element / cage bearing defects (BPFO, BPFI, BSF, FTF in the envelope), impulsive content, high-frequency rise (early wear or lubrication), cavitation and flow turbulence, and electrical faults (2x line frequency). Each finding states its evidence and a recommended action. |
+| **Diagnose** | Explainable rules name: imbalance (1x), misalignment (2x), mechanical looseness (harmonic fence), outer race / inner race / rolling element / cage bearing defects (BPFO, BPFI, 2x BSF, FTF in the envelope, with cage-rate sidebands attributed to the primary defect rather than reported as separate faults), impulsive content, high-frequency rise (early wear or lubrication), cavitation and flow turbulence, and electrical faults (2x line frequency). Each finding states its evidence and a recommended action. |
 | **Early warning** | A named fault pattern overrides a still-healthy overall score: a mild bearing defect is flagged while the overall sound has barely changed. |
 | **Three sources** | Live microphone (browser voice processing switched off), a built-in physically-flavoured machine simulator with injectable faults (for demos and training), or a recording (voice memo, WAV, MP3, M4A) analysed after the fact. |
 | **Records** | Per-machine nameplate (speed, mains frequency, bearing type from a preset list or custom geometry, measuring point), saved readings and a health trend, CSV export, JSON backup and restore between devices. |
@@ -54,7 +54,7 @@ All signal processing is in `js/dsp.js` and `js/model.js`: plain JavaScript with
 - **Spectrum:** Hann window, iterative radix-2 FFT, amplitude-corrected so a sine of amplitude A reads A.
 - **Features:** overall level, crest factor, kurtosis, spectral centroid, spectral flatness, 24 log-spaced band energies (20 Hz to 12 kHz, defined in Hz so they survive sample-rate changes), and the kurtosis and level of the 1.5 to 8 kHz band.
 - **Envelope analysis:** the 1.5 to 8 kHz band is isolated and turned into an analytic signal with an FFT-based Hilbert transform; the spectrum of its magnitude shows the repetition rate of impacts. Band kurtosis ("spectral kurtosis") is about 3 for random noise and climbs to 7 to 9 with a bearing defect, which is what makes early bearing faults detectable when the overall sound has barely changed.
-- **Bearing frequencies:** BPFO, BPFI, BSF and FTF from shaft speed and bearing geometry (presets for 6205, 6206, 6305, 6308 and 6310, or custom geometry from the maker's catalogue).
+- **Bearing frequencies:** BPFO, BPFI, BSF and FTF (a damaged ball hits both races each spin, so it is sought at 2x BSF) from shaft speed and bearing geometry (presets for 6205, 6206, 6305, 6308 and 6310, or custom geometry from the maker's catalogue).
 - **Baseline and score:** per-feature mean and standard deviation with physical floors (so a very steady machine does not alarm on tiny wobbles), weighted RMS of z-scores (impulsiveness one-sided), thresholds self-calibrated from the baseline's own 99th percentile.
 - **Health index:** 100 at the baseline median, 70 at the warn threshold, 40 at the alarm threshold, mapped to zones A (85+), B (70+), C (40+), D.
 
@@ -65,7 +65,7 @@ cd claude/auscult
 npm test            # node --test, no dependencies
 ```
 
-19 tests: FFT round trip and amplitude, kurtosis of sine/Gaussian/impulses, centroid, bearing frequency orders for a 6205 against reference values, envelope detection of an impact train, baseline calibration, no false alarms on an independent healthy run, correct naming of all seven fault types, severity ordering, the early-warning path, looseness not mislabelled as misalignment, and baseline serialisation.
+23 tests: FFT round trip and amplitude, kurtosis of sine/Gaussian/impulses, centroid, bearing frequency orders for a 6205 against reference values, envelope detection of an impact train, baseline calibration, no false alarms on an independent healthy run, correct naming of all eight fault types, rolling element defects found at 2x BSF without their cage sidebands being misread as inner race faults, band energies agreeing across 48 and 44.1 kHz, no Nyquist-bin doubling in the envelope, severity ordering, the early-warning path, looseness not mislabelled as misalignment, and baseline serialisation.
 
 A wider sweep (3 baselines x 2 monitoring seeds x 8 conditions x 2 severities) gave **zero false alarms on 12 healthy runs** and correct naming of every fault at moderate severity.
 

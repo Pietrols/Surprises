@@ -24,6 +24,7 @@ export const FAULTS = {
   looseness: 'Mechanical looseness',
   bearing_outer: 'Bearing outer race defect',
   bearing_inner: 'Bearing inner race defect',
+  bearing_ball: 'Bearing rolling element defect',
   cavitation: 'Pump cavitation',
   electrical: 'Electrical (2x line frequency)',
 };
@@ -117,7 +118,8 @@ export class MachineSim {
     if (f === 'electrical') lineAmp *= 1 + 6 * sev;
 
     const bf = bearingFrequencies({ rpm: this.rpm, ...this.bearing });
-    const impactHz = f === 'bearing_outer' ? bf.BPFO : f === 'bearing_inner' ? bf.BPFI : 0;
+    // A ball defect hits both races once per spin revolution: impacts at 2x BSF.
+    const impactHz = f === 'bearing_outer' ? bf.BPFO : f === 'bearing_inner' ? bf.BPFI : f === 'bearing_ball' ? 2 * bf.BSF : 0;
     const impactAmp = 0.9 * sev;
 
     for (let i = 0; i < count; i++) {
@@ -158,6 +160,8 @@ export class MachineSim {
           let a = impactAmp * (0.8 + 0.4 * this.rand());
           // inner race defect rotates through the load zone: modulate by shaft position
           if (f === 'bearing_inner') a *= 0.35 + 0.65 * Math.max(0, Math.cos(this.phase[1]));
+          // the damaged ball is carried by the cage through the load zone: modulate at FTF
+          if (f === 'bearing_ball') a *= 0.35 + 0.65 * Math.max(0, Math.cos(2 * Math.PI * bf.FTF * this.t / sr));
           excite = a;
           const period = sr / impactHz;
           this.nextImpact = this.t + period * (1 + 0.01 * this.gauss()); // 1% slip jitter

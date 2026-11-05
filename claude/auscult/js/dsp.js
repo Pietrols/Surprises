@@ -188,7 +188,8 @@ export function envelopeAnalysis(frame, sr, loHz = 1500, hiHz = 8000) {
   for (let i = 0; i < n; i++) re[i] = frame[i];
   fft(re, im);
   const kLo = Math.max(1, hzBin(loHz, sr, n));
-  const kHi = Math.min(n >> 1, hzBin(Math.min(hiHz, sr / 2), sr, n));
+  // The Nyquist bin must not be doubled (it has no negative-frequency twin), so stop one bin short of it.
+  const kHi = Math.min((n >> 1) - 1, hzBin(Math.min(hiHz, sr / 2), sr, n));
   re[0] = 0; im[0] = 0;
   for (let k = 1; k < n; k++) {
     if (k >= kLo && k <= kHi) { re[k] *= 2; im[k] *= 2; }
@@ -197,10 +198,15 @@ export function envelopeAnalysis(frame, sr, loHz = 1500, hiHz = 8000) {
   ifft(re, im);
   // re is now the band-passed signal, |re + j im| its envelope
   const edge = Math.floor(n * 0.05);
-  let m2 = 0, m4 = 0, cnt = 0;
+  // Central moments over the interior: the band-passed signal has zero mean over the full frame,
+  // but not exactly over a sub-interval, so subtract the interior mean.
+  let mu = 0, cnt = n - 2 * edge;
+  for (let i = edge; i < n - edge; i++) mu += re[i];
+  mu /= cnt;
+  let m2 = 0, m4 = 0;
   for (let i = edge; i < n - edge; i++) {
-    const v2 = re[i] * re[i];
-    m2 += v2; m4 += v2 * v2; cnt++;
+    const d = re[i] - mu, v2 = d * d;
+    m2 += v2; m4 += v2 * v2;
   }
   m2 /= cnt; m4 /= cnt;
   const env = new Float64Array(n);

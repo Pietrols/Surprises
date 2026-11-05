@@ -53,6 +53,40 @@ test('kurtosis: sine about 1.5, gaussian about 3, impulses much higher', () => {
   assert.ok(extractFeatures(imp, SR, bands).kurtosis > 10);
 });
 
+test('band energies of the same physical sound agree across sample rates (48 vs 44.1 kHz)', () => {
+  // Constant noise PSD per Hz plus a tone: what a microphone sees regardless of the device's rate.
+  const S = 1e-7, n = FRAME, T = 12;
+  const run = (sr) => {
+    const r = rng(4), bands = makeBands(sr, n), acc = new Float64Array(bands.length);
+    const sigma = Math.sqrt((S * sr) / 2);
+    for (let t = 0; t < T; t++) {
+      const x = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        const u = Math.max(1e-12, r()), v = r();
+        x[i] = 0.1 * Math.sin((2 * Math.PI * 1000 * (i + t * n)) / sr) + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      }
+      const f = extractFeatures(x, sr, bands);
+      for (let b = 0; b < bands.length; b++) acc[b] += f.bandDb[b] / T;
+    }
+    return { bands, acc };
+  };
+  const a = run(48000), b = run(44100);
+  for (const hz of [300, 1000, 3000, 6000]) {
+    const ia = a.bands.findIndex((B) => B.fLo <= hz && B.fHi > hz);
+    const ib = b.bands.findIndex((B) => B.fLo <= hz && B.fHi > hz);
+    assert.ok(Math.abs(a.acc[ia] - b.acc[ib]) < 0.5, `${hz} Hz band differs by ${(a.acc[ia] - b.acc[ib]).toFixed(2)} dB`);
+  }
+});
+
+test('envelope analysis never doubles the Nyquist bin, even when the band reaches sr/2', async () => {
+  const { envelopeAnalysis } = await import('../js/dsp.js');
+  const sr = 16000, n = 1024;
+  const x = new Float64Array(n);
+  for (let i = 0; i < n; i++) x[i] = i % 2 ? -1 : 1; // pure Nyquist tone
+  const res = envelopeAnalysis(x, sr, 1500, 8000);
+  assert.ok(res.levelDb < -100, `Nyquist energy leaked into the band: ${res.levelDb.toFixed(1)} dB`);
+});
+
 test('spectral centroid tracks a pure tone', () => {
   const f = extractFeatures(sine(FRAME, 3000), SR, makeBands(SR, FRAME));
   assert.ok(Math.abs(f.centroidHz - 3000) < 50, `centroid ${f.centroidHz}`);
@@ -138,6 +172,7 @@ const CASES = [
   ['looseness', ['looseness']],
   ['bearing_outer', ['bearing_BPFO']],
   ['bearing_inner', ['bearing_BPFI']],
+  ['bearing_ball', ['bearing_BSF']],
   ['cavitation', ['cavitation']],
   ['electrical', ['electrical']],
 ];
@@ -172,6 +207,18 @@ test('early warning: a mild outer race defect is named before the overall score 
 test('looseness is not mislabelled as misalignment', () => {
   const { dx } = monitor('looseness', 0.7);
   assert.equal(dx.findings[0].code, 'looseness', dx.findings.map((f) => f.code).join(','));
+});
+
+test('rolling element defect is found at 2x BSF and its cage sidebands are not reported as other faults', () => {
+  for (const seed of [6, 7]) {
+    const sim = new MachineSim({ sr: SR, ...MACHINE, seed });
+    sim.setFault('bearing_ball', 0.7);
+    const acc = new Accumulator(30);
+    for (const fr of frames(sim, 30)) acc.push(analyzeFrame(fr, ctx));
+    const a = assess(acc.average(), baseline, ctx, MACHINE);
+    const bearingCodes = a.findings.map((f) => f.code).filter((c) => c.startsWith('bearing_'));
+    assert.deepEqual(bearingCodes, ['bearing_BSF'], `seed ${seed}: ${bearingCodes.join(',')}`);
+  }
 });
 
 test('baseline is JSON serialisable and survives a round trip', () => {
