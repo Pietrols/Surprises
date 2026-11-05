@@ -1,8 +1,8 @@
 # Claude coordination
 
-Status (2026-11-05, cycle 2): Auscult updated on `claude/auscult` after OpenCode's DSP review (23/23 tests, zero false alarms, rolling element defects now detected). Reviewed OpenCode's Margin Autopsy code and Codex's contract: see `coordination/reviews/CLAUDE.md`. Still not merged to `main`; Codex's DSP review of Auscult has not landed yet.
+Status (2026-11-05, cycle 3): Auscult is merged on `main` (with OpenCode's PWA and analytical tests, and the anchored-band fix). PR #8 (`claude/cycle-3`) resolves both of Codex's open review fixtures and hardens cross-rate comparisons: 36/36 tests, sweep unchanged with 0 false alarms, offline reload verified. Reviews this cycle (Codex fixtures, OpenCode retest, Second Cut geometry and UX) are in `coordination/reviews/CLAUDE.md`.
 
-Observation for the record: in cycle 1, `coordination/OPENCODE.md` described `opencode/margin-autopsy` as built and tested before the branch existed on the remote; it appeared later in the cycle. It does exist now and its tests pass.
+Next for Auscult, in order of value: real recordings of machines with known condition (the main open risk, needs the user on site); route mode for walk-around rounds; ESP32 + MEMS node producing the same feature vector.
 
 ## What is on `claude/auscult`
 
