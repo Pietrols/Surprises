@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Auscult</title>
+  <meta name="description" content="Listen to a motor, pump or fan with your phone and know whether it is healthy. Learns each machine's normal sound and names the likely fault when it drifts.">
+  <meta name="theme-color" content="#F3F5F7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#151B22" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F5D8A'/%3E%3Cpath d='M4 17h5l3-8 4 15 3-11 2 4h7' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Auscult home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M4 17h5l3-8 4 15 3-11 2 4h7"/></svg>
+      <span>Auscult</span>
+    </a>
+    <label class="machine-picker">
+      <span class="sr-only">Machine</span>
+      <select id="machineSelect"></select>
+    </label>
+    <div class="topbar-actions">
+      <button class="btn ghost" id="btnNewMachine" type="button">Add machine</button>
+      <button class="btn ghost" id="btnBackup" type="button">Back up</button>
+      <label class="btn ghost file-btn">Restore<input type="file" id="fileRestore" accept="application/json,.json" hidden></label>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- Shown when no machine exists yet -->
+    <section class="welcome" id="welcome" hidden>
+      <div class="welcome-trace" aria-hidden="true"><canvas id="welcomeCanvas"></canvas></div>
+      <h1>Hear a failing bearing weeks before it seizes.</h1>
+      <p>Hold your phone at the same spot on a motor, pump or fan for twenty seconds. Auscult learns how that machine sounds when it is healthy, then tells you when the sound drifts and which fault the change points to.</p>
+      <div class="welcome-actions">
+        <button class="btn primary" id="btnDemo" type="button">Try it on a simulated pump</button>
+        <button class="btn" id="btnFirstMachine" type="button">Add my first machine</button>
+      </div>
+      <p class="fine">Everything stays on this device. No account, no upload.</p>
+    </section>
+
+    <div class="workspace" id="workspace" hidden>
+      <!-- Left column: the machine and where the sound comes from -->
+      <aside class="side">
+        <section class="panel" aria-labelledby="hMachine">
+          <div class="panel-head">
+            <h2 id="hMachine">Machine</h2>
+            <button class="link" id="btnEditMachine" type="button" aria-expanded="false" aria-controls="machineForm">Edit</button>
+          </div>
+          <dl class="nameplate" id="nameplate"></dl>
+          <form class="machine-form" id="machineForm" hidden>
+            <label>Name<input name="name" required maxlength="80" placeholder="Mill feed conveyor drive"></label>
+            <div class="row2">
+              <label>Tag<input name="tag" maxlength="40" placeholder="CV-104-M1"></label>
+              <label>Location<input name="location" maxlength="80" placeholder="Concentrator, level 2"></label>
+            </div>
+            <div class="row2">
+              <label>Shaft speed (rpm)<input name="rpm" type="number" min="0" max="20000" step="1" placeholder="1480"></label>
+              <label>Mains frequency
+                <select name="lineHz"><option value="50">50 Hz</option><option value="60">60 Hz</option></select>
+              </label>
+            </div>
+            <label>Bearing nearest the measuring point
+              <select name="bearingPreset" id="bearingPreset">
+                <option value="">Unknown</option>
+                <option value="6205">6205 deep groove ball</option>
+                <option value="6206">6206 deep groove ball</option>
+                <option value="6305">6305 deep groove ball</option>
+                <option value="6308">6308 deep groove ball</option>
+                <option value="6310">6310 deep groove ball</option>
+                <option value="custom">Other (enter geometry)</option>
+              </select>
+            </label>
+            <fieldset class="custom-bearing" id="customBearing" hidden>
+              <legend>Bearing geometry (from the maker's catalogue)</legend>
+              <div class="row2">
+                <label>Rolling elements<input name="balls" type="number" min="3" max="60" step="1"></label>
+                <label>Contact angle (deg)<input name="angleDeg" type="number" min="0" max="45" step="0.5" value="0"></label>
+              </div>
+              <div class="row2">
+                <label>Ball diameter (mm)<input name="ballDiam" type="number" min="0.5" step="0.01"></label>
+                <label>Pitch diameter (mm)<input name="pitchDiam" type="number" min="1" step="0.01"></label>
+              </div>
+            </fieldset>
+            <label>Measuring point<input name="point" maxlength="120" placeholder="Drive-end bearing housing, top, 5 cm away"></label>
+            <div class="form-actions">
+              <button class="btn primary" type="submit">Save machine</button>
+              <button class="btn ghost" type="button" id="btnCancelEdit">Cancel</button>
+              <button class="btn danger-ghost" type="button" id="btnDeleteMachine">Delete</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="hSource">
+          <h2 id="hSource">Listen with</h2>
+          <div class="segmented" role="radiogroup" aria-label="Sound source">
+            <label><input type="radio" name="source" value="mic" checked><span>Microphone</span></label>
+            <label><input type="radio" name="source" value="sim"><span>Simulator</span></label>
+            <label><input type="radio" name="source" value="file"><span>Recording</span></label>
+          </div>
+
+          <div class="source-pane" data-pane="mic">
+            <p class="hint">Use the same phone, the same spot and the same distance every time. Mark the spot with paint. Keep fingers off the microphone hole.</p>
+          </div>
+          <div class="source-pane" data-pane="sim" hidden>
+            <p class="hint">A simulated induction motor at this machine's speed. Learn the healthy sound first, then introduce a fault while monitoring.</p>
+            <label>Condition
+              <select id="simFault"></select>
+            </label>
+            <label>Severity <output id="simSevOut">60%</output>
+              <input type="range" id="simSeverity" min="0.1" max="1" step="0.05" value="0.6">
+            </label>
+            <label class="check"><input type="checkbox" id="simListen"> Play through speaker</label>
+          </div>
+          <div class="source-pane" data-pane="file" hidden>
+            <p class="hint">Record 20 seconds or more with the phone's voice recorder at the measuring point, then open it here. Learn the baseline from a healthy recording, monitor with later ones.</p>
+            <label class="btn file-btn wide">Choose recording<input type="file" id="fileAudio" accept="audio/*,.wav,.mp3,.m4a,.ogg,.aac" hidden></label>
+            <p class="file-name" id="fileName"></p>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="hHistory">
+          <div class="panel-head">
+            <h2 id="hHistory">Health trend</h2>
+            <button class="link" id="btnCsv" type="button">Export CSV</button>
+          </div>
+          <canvas class="chart chart-trend" id="trendCanvas" role="img" aria-label="Health index of saved readings over time"></canvas>
+          <ol class="log" id="historyLog" reversed></ol>
+        </section>
+      </aside>
+
+      <!-- Right column: the reading -->
+      <div class="main-col">
+        <section class="readout" aria-live="polite">
+          <div class="readout-top">
+            <div class="health">
+              <span class="health-num" id="healthNum">--</span>
+              <span class="health-label">health</span>
+            </div>
+            <div class="verdict">
+              <p class="verdict-title" id="verdictTitle">No baseline yet</p>
+              <p class="verdict-text" id="verdictText">Learn the healthy sound of this machine first.</p>
+            </div>
+          </div>
+
+          <div class="zones" id="zones" role="img" aria-label="Severity zone">
+            <div class="zone z-d"><b>D</b><span>Act now</span></div>
+            <div class="zone z-c"><b>C</b><span>Plan maintenance</span></div>
+            <div class="zone z-b"><b>B</b><span>Acceptable</span></div>
+            <div class="zone z-a"><b>A</b><span>As new</span></div>
+            <div class="needle" id="needle" hidden></div>
+          </div>
+
+          <div class="progress" id="progress" hidden><div class="progress-bar" id="progressBar"></div></div>
+
+          <div class="controls">
+            <label class="learn-len">Learn for
+              <select id="learnSeconds">
+                <option value="10">10 s</option>
+                <option value="20" selected>20 s</option>
+                <option value="30">30 s</option>
+                <option value="60">60 s</option>
+              </select>
+            </label>
+            <button class="btn" id="btnLearn" type="button">Learn healthy sound</button>
+            <button class="btn primary" id="btnMonitor" type="button">Start monitoring</button>
+            <button class="btn" id="btnStop" type="button" hidden>Stop</button>
+            <button class="btn ghost" id="btnSave" type="button" disabled>Save reading</button>
+            <button class="btn ghost" id="btnReport" type="button" disabled>Report</button>
+          </div>
+          <div class="level"><span>Input</span><div class="level-meter"><div id="levelBar"></div></div><span id="levelText">--</span></div>
+          <p class="notice" id="notice" role="status" hidden></p>
+        </section>
+
+        <section class="panel findings-panel" aria-labelledby="hFindings">
+          <h2 id="hFindings">What the sound points to</h2>
+          <ul class="findings" id="findings"></ul>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Spectrum</h2>
+            <p class="legend"><i class="sw sw-now"></i>Now <i class="sw sw-base"></i>Healthy baseline</p>
+          </div>
+          <canvas class="chart" id="specCanvas" role="img" aria-label="Frequency spectrum of the current sound against the healthy baseline"></canvas>
+        </section>
+
+        <div class="split">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Impact rhythm</h2>
+              <p class="legend">Envelope spectrum</p>
+            </div>
+            <canvas class="chart" id="envCanvas" role="img" aria-label="Envelope spectrum with bearing defect frequencies marked"></canvas>
+            <p class="caption">Repeating impacts from a damaged bearing show up as peaks at its defect frequencies.</p>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Where it changed</h2>
+              <p class="legend">Deviation per band</p>
+            </div>
+            <canvas class="chart" id="bandCanvas" role="img" aria-label="Change in each frequency band compared with the healthy baseline"></canvas>
+            <p class="caption">Bars beyond 3 sigma are changes the healthy machine never made while learning.</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="confirmDialog">
+    <form method="dialog">
+      <p id="confirmText"></p>
+      <div class="form-actions">
+        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn primary" value="ok" id="confirmOk">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
