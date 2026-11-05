@@ -298,16 +298,18 @@ export function runAutopsy(items, config = {}) {
   const seed = Number(config.seed) || 20261105;
 
   const analyzed = items.map((it) => (it.raw && it.shields ? it : analyzeLineItem(it)));
-  const fullNetRevenue = Math.max(0, quotePrice - hardCost);
+  // Keep signed net revenue (quotePrice - hardCost) so hardCost exceeding quotePrice
+  // is reflected dollar-for-dollar in downside profit rather than clamped away at 0.
+  const fullNetRevenue = quotePrice - hardCost;
 
   const quotedBaseHours = round1(analyzed.reduce((s, it) => s + it.baseHours, 0));
   const activeBaseHours = round1(analyzed.reduce((s, it) => s + it.effective.base, 0));
 
-  // Proportional Phase-1 revenue retained when Phase-2 items are carved out of the fixed bid:
+  // Proportional Phase-1 quote retained when Phase-2 items are carved out of the fixed bid:
   const retainedShare = quotedBaseHours > 0 ? activeBaseHours / quotedBaseHours : 1;
-  const activeNetRevenue = Math.round(fullNetRevenue * retainedShare);
-  const activeQuotePrice = activeNetRevenue + hardCost;
-  const carvedOutQuoteReduction = Math.round(fullNetRevenue - activeNetRevenue);
+  const activeQuotePrice = Math.round(quotePrice * retainedShare);
+  const carvedOutQuoteReduction = Math.round(quotePrice - activeQuotePrice);
+  const activeNetRevenue = activeQuotePrice - hardCost;
 
   const phase2Value = Math.round(
     analyzed
@@ -364,12 +366,12 @@ export function runAutopsy(items, config = {}) {
     const profitP50 = Math.round(netRev - p50 * targetRate);
     const profitP90 = Math.round(netRev - p90 * targetRate); // economic surplus/deficit vs targetRate floor at p90
 
-    const maxHoursForTarget = netRev / targetRate;
+    const maxHoursForTarget = Math.max(0, netRev / targetRate);
     let underwaterCount = 0;
     for (let i = 0; i < sorted.length; i++) {
       if (sorted[i] > maxHoursForTarget) underwaterCount++;
     }
-    const probBelowTarget = sorted.length && maxHoursForTarget > 0 ? Math.round((underwaterCount / sorted.length) * 100) : 0;
+    const probBelowTarget = sorted.length ? Math.round((underwaterCount / sorted.length) * 100) : 0;
 
     const minH = Math.max(0, quantileSorted(sorted, 0.01));
     const maxH = Math.max(minH + 8, quantileSorted(sorted, 0.99));

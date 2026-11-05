@@ -170,6 +170,17 @@ test('all built-in scenarios parse and evaluate cleanly', () => {
   }
 });
 
+test('hardCost exceeding quotePrice reduces downside profit dollar-for-dollar (Codex review fixture)', () => {
+  const items = parseScopeText('Simple task [8h]');
+  const at1000 = runAutopsy(items, { quotePrice: 1000, hardCost: 1000, targetRate: 150 });
+  const at2000 = runAutopsy(items, { quotePrice: 1000, hardCost: 2000, targetRate: 150 });
+
+  assert.equal(at2000.current.economicMargin.profitP50, at1000.current.economicMargin.profitP50 - 1000);
+  assert.equal(at2000.current.economicMargin.profitP90, at1000.current.economicMargin.profitP90 - 1000);
+  assert.equal(at2000.current.probBelowTarget, 100);
+  assert.equal(at2000.verdictStatus, 'critical');
+});
+
 test('every RISK_RULE has a valid whitespace-free id, RegExp, and non-empty shield clause', () => {
   for (const r of RISK_RULES) {
     assert.ok(!/\s/.test(r.id), `rule id "${r.id}" must not contain whitespace`);
