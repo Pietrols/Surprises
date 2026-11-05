@@ -1,9 +1,9 @@
 // Cache a complete, versioned app. Inventory is stored separately by the page.
 const scope = self.registration.scope;
 const prefix = 'second-cut:' + scope + ':';
-const cacheName = prefix + 'v2';
+const cacheName = prefix + 'v3';
 const assets = ['index.html', 'style.css', 'app.js', 'packet.js', 'worker.js',
-  'engine.js', 'recipes.js', 'validate.js', 'inventory.js', 'domain.js', 'storage.js'];
+  'engine.js', 'grouped.js', 'recipes.js', 'validate.js', 'inventory.js', 'domain.js', 'storage.js'];
 const urls = new Set(assets.map(path => new URL(path, scope).href));
 
 self.addEventListener('install', event => {

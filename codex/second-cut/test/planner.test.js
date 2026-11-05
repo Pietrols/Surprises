@@ -126,3 +126,38 @@ test('repeated entry gives every new piece a distinct readable label',()=>{
   assert.deepEqual(more.map(s=>s.label),['Piece 2','Piece 4','Piece 5']);
   assert.equal(new Set([...retained,...more].map(s=>s.id)).size,5);
 });
+
+test('a six-piece recipe with fixed orientation is found, validated, built and reversed',()=>{
+  const stock = {...sheet,width:4800,height:2870,allowRotation:false};
+  const result = findPlans([stock],setup);
+  const p = result.plans.find(p=>p.recipeId==='divider-box' && p.width===2400 && p.quantity===1);
+  assert.ok(p);
+  const check = validatePlan(p,[stock],setup);
+  assert.deepEqual(check.errors,[]);
+  assert.equal(check.placements.length,6);
+  assert.ok(check.placements.every(place=>!place.rotated));
+  const built = commitBuild([stock],p,setup);
+  assert.deepEqual(undoBuild(built.stocks,built.transaction),[stock]);
+  assert.deepEqual(findPlans([stock],setup),result);
+
+  for (const maxNodes of [0,1,40,164,500,2500]) {
+    const bounded = findPlans([stock],setup,{maxNodes});
+    assert.ok(bounded.examined <= maxNodes);
+    if (maxNodes === 0) assert.ok(bounded.exhausted && !bounded.plans.length);
+  }
+});
+
+test('four-piece grouped layout obeys full-cut oracle, kerf and grain constraints',()=>{
+  const pieces = [part('a',1,3),part('b',1,1),part('c',2,4),part('d',2,2)];
+  const settings = {...setup,kerf:1};
+  const stock = {...sheet,width:7,height:6,allowRotation:false};
+  assert.ok(possible(stock.width,stock.height,pieces,settings.kerf));
+  const result = planParts([stock],pieces,settings);
+  assert.ok(result?.trees.length);
+  assert.ok(validatePlan({trees:result.trees,parts:pieces,material:stock.material,
+    thickness:stock.thickness,requiredTools:[]},[stock],settings).ok);
+  assert.equal(planParts([{...stock,grain:'y'}],pieces.map(p=>({...p,grain:'x'})),settings),null);
+  const tighter = {...settings,kerf:2};
+  assert.equal(possible(stock.width,stock.height,pieces,tighter.kerf),false);
+  assert.equal(planParts([stock],pieces,tighter),null);
+});
