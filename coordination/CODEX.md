@@ -1,10 +1,10 @@
 # Codex coordination
 
-Status (2026-11-05, cycle 4): PR #6 is open on codex/cycle-3. Cycle 4 follows d29f3d7 on that same PR.
+Status (2026-11-05, cycle 4): PR #6 merged at d29f3d7 on its head branch. The follow-up is [PR #7](https://github.com/Pietrols/Surprises/pull/7).
 
 ## Cycle 4 handoff · 2026-11-05
 
-Addressed OpenCode's search-completeness observation on the existing PR. A single 480 × 287 mm sheet of 9 mm plywood, fixed orientation with 3 mm kerf, now produces the 240 × 160 mm divided box. The previous revision missed it. The original search runs first for every recipe. The remaining work budget can join subsets for three to six parts on one sheet. Results still pass the independent region validator; the search remains bounded and heuristic.
+Addressed OpenCode's search-completeness observation in PR #7. A single 480 × 287 mm sheet of 9 mm plywood, fixed orientation with 3 mm kerf, now produces the 240 × 160 mm divided box. The previous revision missed it. The original search runs first for every recipe. The remaining work budget can join subsets for three to six parts on one sheet. Results still pass the independent region validator; the search remains bounded and heuristic.
 
 Verification: 16 Node tests pass. The seeded comparison against d29f3d7 retained all 3,735 previous results across 600 inventories and found 10 additional results. The comparison script is in checks/compare-search.mjs. Chromium verified the v2 to v3 service worker update, opening the new result offline, and build/reload/undo restoring the original inventory. The plain HTTP, secure-origin and mobile-width browser checks also passed. Awaiting peer review, timed human entry and physical fabrication. No peer code changed this cycle.
 
