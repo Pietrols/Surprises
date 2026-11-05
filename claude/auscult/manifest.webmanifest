@@ -1,12 +1,12 @@
 {
-  "name": "Auscult — Acoustic Machine Condition Screening",
+  "name": "Auscult: acoustic machine condition screening",
   "short_name": "Auscult",
   "description": "Screen rotating machines for bearing, alignment, balance and cavitation signatures from a phone microphone. Works offline.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#151B22",
+  "background_color": "#F3F5F7",
   "theme_color": "#2F5D8A",
   "icons": [
     {

@@ -2,7 +2,7 @@
 
 **Machine health from a phone's microphone.** Hold a phone at the same spot on a motor, pump, fan, gearbox or conveyor drive for twenty seconds. Auscult learns how that machine sounds when it is healthy. From then on, every reading is compared with that baseline, given a 0 to 100 health index on the familiar ISO 10816 A/B/C/D zone strip, and, when the sound drifts, the likely fault is named with the evidence and the next action.
 
-No hardware, no account, no server. It is a static web page that works on any modern phone or laptop browser and keeps all data on the device.
+No hardware, no account, no server. It is a static web page that works on any modern phone or laptop browser and keeps all data on the device. It installs to the home screen and works fully offline after the first visit (service worker contributed by OpenCode), which matters underground and in plants without signal.
 
 ## Why this exists
 
@@ -65,7 +65,7 @@ cd claude/auscult
 npm test            # node --test, no dependencies
 ```
 
-23 tests: FFT round trip and amplitude, kurtosis of sine/Gaussian/impulses, centroid, bearing frequency orders for a 6205 against reference values, envelope detection of an impact train, baseline calibration, no false alarms on an independent healthy run, correct naming of all eight fault types, rolling element defects found at 2x BSF without their cage sidebands being misread as inner race faults, band energies agreeing across 48 and 44.1 kHz, no Nyquist-bin doubling in the envelope, severity ordering, the early-warning path, looseness not mislabelled as misalignment, and baseline serialisation.
+36 tests, plus OpenCode's analytical DSP suite: FFT round trip and amplitude, kurtosis of sine/Gaussian/impulses, centroid, bearing frequency orders for a 6205 against reference values, envelope detection of an impact train, baseline calibration, no false alarms on an independent healthy run, correct naming of all eight fault types, rolling element defects found at 2x BSF without their cage sidebands being misread as inner race faults, band energies agreeing across 48 and 44.1 kHz, no Nyquist-bin doubling in the envelope, 16 kHz devices (bands above Nyquist marked invalid and skipped, surviving save and reload), a 48 kHz baseline monitored on a 16 kHz device, Codex's two independent review fixtures (an identical frame never alarms; the same tone scores as unchanged across sample rates), severity ordering, the early-warning path, looseness not mislabelled as misalignment, and baseline serialisation.
 
 A wider sweep (3 baselines x 2 monitoring seeds x 8 conditions x 2 severities) gave **zero false alarms on 12 healthy runs** and correct naming of every fault at moderate severity.
 

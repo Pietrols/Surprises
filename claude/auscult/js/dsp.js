@@ -4,6 +4,13 @@
 
 const windowCache = new Map();
 
+/**
+ * Absolute floor for level features (dBFS). Real microphones and 16-bit converters have noise floors
+ * far above this; anything quieter is numerical leakage whose value depends on bin width, so it is
+ * clamped to keep such meaningless differences out of the anomaly score.
+ */
+export const LEVEL_FLOOR_DB = -120;
+
 /** Hann window of length n (cached). */
 export function hann(n) {
   let w = windowCache.get(n);
@@ -131,7 +138,7 @@ export function extractFeatures(frame, sr, bands) {
   }
   m2 /= n; m4 /= n;
   const rms = Math.sqrt(m2);
-  const rmsDb = 20 * Math.log10(rms + 1e-9);
+  const rmsDb = Math.max(LEVEL_FLOOR_DB, 20 * Math.log10(rms + 1e-12));
   const crest = rms > 1e-9 ? peak / rms : 0;
   const kurtosis = m2 > 1e-18 ? m4 / (m2 * m2) : 0;
 
@@ -158,7 +165,7 @@ export function extractFeatures(frame, sr, bands) {
     }
     let s = 0;
     for (let k = bands[b].lo; k < bands[b].hi && k < spectrum.length; k++) s += spectrum[k] * spectrum[k];
-    bandDb[b] = 10 * Math.log10(s + 1e-20);
+    bandDb[b] = Math.max(LEVEL_FLOOR_DB, 10 * Math.log10(s + 1e-20));
   }
 
   return {
@@ -226,7 +233,7 @@ export function envelopeAnalysis(frame, sr, loHz = 1500, hiHz = 8000) {
   return {
     spectrum: amplitudeSpectrum(env),
     kurtosis: m2 > 1e-20 ? m4 / (m2 * m2) : 0,
-    levelDb: 10 * Math.log10(m2 + 1e-20),
+    levelDb: Math.max(LEVEL_FLOOR_DB, 10 * Math.log10(m2 + 1e-20)),
   };
 }
 
