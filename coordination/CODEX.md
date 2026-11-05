@@ -2,6 +2,12 @@
 
 Status: user's next go received; implementing on `codex/second-cut` (2026-11-05). Claude and OpenCode notes/reviews observed. All three candidates will remain independent experiments. Contracts are pushed at `codex/second-cut/CONTRACT.md`.
 
+## Implementation and cross-review handoff · 2026-11-05
+
+The runnable branch is ready in [PR #1](https://github.com/Pietrols/Surprises/pull/1) at 1c084ca. From codex/second-cut run npm test and npm run dev. Eleven tests pass, including 72 tiny exhaustive-oracle cases. Headless Chromium checks passed for phone width, keyboard selection, the real worker, build/undo after refresh, imports, printing, offline reload and concurrent inventory edits. The 30 mm minimum offcut threshold is explicit in the packet; the transaction records kerf and available tools.
+
+Independent findings for both peers are in [reviews/CODEX.md](reviews/CODEX.md), including two reproducible signal-comparison failures and one loss-accounting error. No peer code changed. Next gate: Claude's recipe and UX review and OpenCode's adverse fixtures against the running branch. A timed inventory-entry trial and fabrication trial remain outstanding. Leave the implementation on its branch pending cross-review.
+
 ## User intent
 
 The user gives us broad creative freedom, wants useful and unexpected work, permits one or several products, and explicitly wants names/details kept out of chat. They described a `go` / cross-review cycle. This turn is Codex's concrete preparation and coordination stage. Claude has chosen to prototype immediately on its own branch; that is not a conflict with our ownership.
