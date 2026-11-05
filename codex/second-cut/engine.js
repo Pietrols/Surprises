@@ -1,4 +1,5 @@
 import {bounded, named, validateInventory, checkSettings} from './domain.js';
+import {groupedTree} from './grouped.js';
 import {enumerateRecipes} from './recipes.js';
 import {validatePlan} from './validate.js';
 
@@ -62,6 +63,18 @@ function solve(stocks,parts,settings,budget) {
   }
   return null;
 }
+
+function solveGrouped(stocks, parts, settings, budget) {
+  if (parts.length < 3 || parts.length > 6) return null;
+  const requiredArea = parts.reduce((sum, part) => sum + area(part), 0);
+  for (const stock of stocks) {
+    if (area(stock) < requiredArea) continue;
+    const root = groupedTree(stock, parts, settings.kerf, budget);
+    if (root) return [{stockId:stock.id, revision:stock.revision, root}];
+    if (budget.exhausted) break;
+  }
+  return null;
+}
 function checked(candidate,stocks,settings) {
   const check=validatePlan(candidate,stocks,settings);
   if(!check.ok) throw Error('Engine returned invalid plan: '+check.errors.join(' '));
@@ -79,13 +92,16 @@ export function planParts(stocks,parts,settings,{maxNodes=25000}={}) {
     groups.get(key).push(s);
   }
   const budget={used:0,limit:maxNodes,exhausted:false};
-  for(const group of groups.values()) {
-    const trees=solve(group,parts,settings,budget);
-    if(trees) {
-      const plan=checked({parts,trees,material:group[0].material,thickness:group[0].thickness,requiredTools:[]},stocks,settings);
-      return {trees,metrics:plan.metrics,exhausted:false};
+  for (const search of [solve, solveGrouped]) {
+    for (const group of groups.values()) {
+      const trees = search(group, parts, settings, budget);
+      if (trees) {
+        const plan = checked({parts, trees, material:group[0].material, thickness:group[0].thickness,
+          requiredTools:[]}, stocks, settings);
+        return {trees, metrics:plan.metrics, exhausted:false};
+      }
+      if (budget.exhausted) return {trees:[], metrics:null, exhausted:true};
     }
-    if(budget.exhausted) return {trees:[],metrics:null,exhausted:true};
   }
   return null;
 }
@@ -94,15 +110,24 @@ export function findPlans(stocks,settings,{maxPlans=12,maxNodes=25000}={}) {
   if(!bounded(maxPlans,1,1000)) throw Error('Invalid result limit.');
   const recipes=enumerateRecipes(stocks,settings), plans=[];
   let examined=0,exhausted=false;
-  for(let i=0;i<recipes.length;i++) {
-    const candidate=recipes[i];
-    // Reserve work for later recipes so a difficult large option cannot hide an easy one.
-    const budget={used:0,limit:Math.floor((maxNodes-examined)/(recipes.length-i)),exhausted:false};
-    const group=stocks.filter(s=>s.thickness===candidate.thickness && s.material===candidate.material);
-    const trees=solve(group,candidate.parts,settings,budget);
-    examined+=budget.used;
-    exhausted ||= budget.exhausted;
-    if(trees) plans.push(checked({...candidate,trees},stocks,settings));
+  let pending = recipes;
+  // Give every recipe its original corner-search budget before spending any
+  // remaining work on group joins. A difficult retry cannot displace an easy build.
+  for (const search of [solve, solveGrouped]) {
+    const retry = [];
+    for (const [i, candidate] of pending.entries()) {
+      const group = stocks.filter(s => s.thickness === candidate.thickness && s.material === candidate.material);
+      const budget = {used:0, limit:Math.floor((maxNodes-examined)/(pending.length-i)), exhausted:false};
+      const trees = search(group, candidate.parts, settings, budget);
+      examined += budget.used;
+      exhausted ||= budget.exhausted;
+      if (trees) {
+        plans.push(checked({...candidate,trees}, stocks, settings));
+      } else if (search === solve && candidate.parts.length >= 3 && candidate.parts.length <= 6) {
+        retry.push(candidate);
+      }
+    }
+    pending = retry;
   }
   plans.sort((a,b)=>b.quantity-a.quantity || b.metrics.utilization-a.metrics.utilization || a.metrics.cuts-b.metrics.cuts || (a.id<b.id?-1:1));
   return {plans:plans.slice(0,maxPlans),examined,exhausted};

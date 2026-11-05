@@ -27,6 +27,10 @@ Search tries a finite size grid for a tray, divided box and tile set, with one o
 
 Every cut spans the current rectangular region. Stock measurements already exclude edge trim. The narrow kerf strip is removed after the marked offset. Exact fits need no cut. The model requires two positive child regions for an actual cut, including at the sheet edge. It uses integer tenths of a millimeter and does not mix stock materials or thicknesses within an option. Separate options cannot be combined into one packet.
 
+The search places corners first. For remaining options with three to six parts it can also join two groups across a full cut on a single sheet. Both passes share one work budget, and the independent validator reconstructs every returned tree.
+
+To reproduce a case that needs the second pass, use one 480 × 287 mm sheet of 9 mm plywood with rotation disabled, no grain constraint, all four tools and 3 mm kerf. Select the single 240 × 160 mm two-compartment box. Its packet contains six parts from the same sheet.
+
 Search is deterministic and bounded. It ranks found plans by quantity, fraction of consumed area used for parts, then cut count. A budget or a heuristic miss can leave a feasible build undiscovered. The displayed list is capped at twelve. Geometry checks establish neither optimality nor real-world fit, strength or demand.
 
 ## Verification
@@ -40,3 +44,8 @@ To repeat the plain HTTP browser check, start the server on port 4173 and run
 Playwright and its Chromium installed. Optionally set `CHROMIUM_EXECUTABLE` to a
 Chromium binary. The script routes a non-secure test origin to the local server
 and uses fresh, isolated browser stores.
+
+To repeat the seeded comparison, use `node checks/compare-search.mjs /path/to/baseline/engine.js`.
+Keep the baseline module with its sibling files from commit d29f3d7. The script
+compares every candidate across 600 inventories with varying grain, rotation,
+kerf and budgets, and independently validates the resulting plans.
