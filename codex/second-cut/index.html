@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Second Cut · Workshop planner</title><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header><div class="brand"><span class="logo" aria-hidden="true"></span> Second Cut</div><span>Workshop planner</span></header>
+<main>
+<div class="intro"><h1>What can you make?</h1><p>Start with usable sheet offcuts. Explore objects that fit, then inspect each cut before committing your stock.</p></div>
+<div class="workspace">
+<section class="panel controls"><h2>Your stock</h2><p class="hint">Usable rectangles after trimming. Dimensions in mm.</p>
+<ul id="stock"></ul>
+<form id="add"><label>Quick entry<textarea id="sizes" rows="2" placeholder="500x300x2, 420x180" required></textarea></label>
+<div class="fields"><label>Material <select id="material"><option>Plywood</option><option>MDF</option><option>Acrylic</option></select></label>
+<label>Thickness (mm)<input id="thickness" type="number" min=".1" max="100" step=".1" value="9" required></label>
+<label>Stock grain<select id="grain"><option value="none">None</option><option value="x">Along width</option><option value="y">Along height</option></select></label>
+<label class="tick"><input type="checkbox" id="rotate" checked>Allow rotation</label></div>
+<button>Add pieces</button></form>
+<h3>Workshop setup</h3><label>Blade kerf (mm)<input id="kerf" type="number" min="0" max="10" step=".1"></label>
+<fieldset><legend>Available tools</legend><div id="tools"></div></fieldset>
+<div class="actions"><button id="backup">Export inventory</button><label class="file">Import inventory<input id="import" type="file" accept="application/json,.json"></label><button id="undo">Undo build</button></div>
+<p id="notice" role="alert"></p>
+</section>
+<section class="panel results"><h2>Build options</h2><p id="status" role="status"></p><label id="choose">Select an alternative<select id="plans"></select></label>
+<article id="packet"></article><div id="planActions" class="actions"><button id="build">Confirm build</button><button id="print">Print packet</button></div>
+</section></div>
+</main><script type="module" src="./app.js"></script></body></html>
