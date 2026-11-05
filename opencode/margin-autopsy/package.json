@@ -1,0 +1,10 @@
+{
+  "name": "margin-autopsy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic Fixed-Bid & Scope-Drift X-Ray with Monte Carlo effort simulation and Change-Order Shield generator.",
+  "scripts": {
+    "test": "node --test test/"
+  }
+}

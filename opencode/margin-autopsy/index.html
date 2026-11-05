@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Margin Autopsy — Fixed-Bid & Scope-Drift X-Ray</title>
+  <meta name="description" content="Deterministic scope-drift X-ray, Monte Carlo effort simulator, and contractual Change-Order Shield generator for fixed-bid quotes.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111827'/%3E%3Cpath d='M6 22L13 13l5 5 8-10' fill='none' stroke='%2310B981' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='18' cy='18' r='2.5' fill='%23F59E0B'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="currentColor"/><path d="M6 22L13 13l5 5 8-10" fill="none" stroke="#10B981" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="18" r="2.6" fill="#F59E0B"/></svg>
+      </div>
+      <div>
+        <span class="brand-name">Margin Autopsy</span>
+        <span class="brand-tag">Fixed-Bid &amp; Scope-Drift X-Ray</span>
+      </div>
+    </div>
+
+    <div class="topbar-controls">
+      <label class="scenario-picker">
+        <span>Load Preset Brief</span>
+        <select id="scenarioSelect" aria-label="Load preset project brief"></select>
+      </label>
+      <button class="btn secondary" id="btnAutoSurgery" type="button" title="Automatically cap or phase the top tail-risk scope items">Auto-Shield Top Traps</button>
+      <button class="btn ghost" id="btnResetModes" type="button">Reset Modes</button>
+      <button class="btn primary" id="btnPrintSchedule" type="button">Client Scope Schedule</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Left Column: Deal Parameters & Raw Scope Editor -->
+    <aside class="col-input">
+      <section class="card">
+        <div class="card-head">
+          <h2>1. Deal Economics</h2>
+          <span class="pill" id="quotedRatePill">--</span>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            <span>Project / Client Name</span>
+            <input type="text" id="projectName" value="B2B SaaS Client Portal & ERP Sync">
+          </label>
+          <div class="row-2">
+            <label>
+              <span>Fixed Quote Price ($)</span>
+              <input type="number" id="quotePrice" min="500" step="250" value="18500">
+            </label>
+            <label>
+              <span>Target Rate Floor ($/hr)</span>
+              <input type="number" id="targetRate" min="20" step="5" value="150">
+            </label>
+          </div>
+          <div class="row-2">
+            <label>
+              <span>Pass-Through Costs ($)</span>
+              <input type="number" id="hardCost" min="0" step="100" value="500">
+            </label>
+            <label>
+              <span>Monte Carlo Runs</span>
+              <select id="simRuns">
+                <option value="1000">1,000 runs</option>
+                <option value="2000" selected>2,000 runs (seeded)</option>
+                <option value="4000">4,000 runs</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>2. Raw Scope / Feature List</h2>
+          <button class="link-btn" id="btnParseScope" type="button">Re-parse Text</button>
+        </div>
+        <p class="hint">One deliverable per line. Optional hour hint like <code>[16h]</code> and mode tag <code>[allowance]</code> or <code>[phase2]</code>.</p>
+        <textarea id="scopeTextarea" rows="11" spellcheck="false" aria-label="Raw project scope"></textarea>
+        <div class="micro-bar">
+          <span id="itemCountLabel">0 line items</span>
+          <button class="link-btn" id="btnExportJson" type="button">Export JSON</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>3. Top Margin Killers (p90 Overrun)</h2>
+        </div>
+        <ul class="drivers-list" id="driversList"></ul>
+      </section>
+    </aside>
+
+    <!-- Right Column: Live X-Ray Readout, Distribution Chart, Surgical Table & Shields -->
+    <section class="col-main">
+      <!-- Executive Verdict Banner -->
+      <section class="verdict-card" id="verdictCard" data-status="watch">
+        <div class="verdict-top">
+          <div>
+            <span class="eyebrow" id="verdictBadge">MARGIN X-RAY</span>
+            <h1 id="verdictTitle">Analyzing scope...</h1>
+            <p id="verdictSub">Comparing paper estimate against log-normal scope-drift distribution.</p>
+          </div>
+          <div class="safe-bid-box">
+            <span class="safe-bid-label">Recommended p90-Safe Quote</span>
+            <strong class="safe-bid-val" id="safeBidVal">$--</strong>
+            <span class="safe-bid-note" id="safeBidNote">at target rate floor</span>
+          </div>
+        </div>
+
+        <div class="metrics-strip">
+          <div class="metric-tile">
+            <span class="m-label">Paper Estimate (Base)</span>
+            <strong class="m-val" id="mBaseHours">-- hrs</strong>
+            <span class="m-sub" id="mPaperRate">$--/hr on paper</span>
+          </div>
+          <div class="metric-tile">
+            <span class="m-label">Expected Effort (p50)</span>
+            <strong class="m-val" id="mP50Hours">-- hrs</strong>
+            <span class="m-sub" id="mP50Rate">$--/hr realized</span>
+          </div>
+          <div class="metric-tile">
+            <span class="m-label">Tail-Risk Effort (p90)</span>
+            <strong class="m-val" id="mP90Hours">-- hrs</strong>
+            <span class="m-sub" id="mP90Rate">$--/hr realized</span>
+          </div>
+          <div class="metric-tile">
+            <span class="m-label">Underwater Risk (&lt; Target $/hr)</span>
+            <strong class="m-val" id="mProbUnder">--%</strong>
+            <span class="m-sub" id="mShieldSaved">--</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Effort Distribution & Threshold Canvas -->
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Simulated Effort Distribution (2,000 Runs)</h2>
+            <p class="hint">Bars past the red line push your realized hourly rate below your target floor.</p>
+          </div>
+          <div class="legend">
+            <span><i class="dot dot-safe"></i>Above Target Rate</span>
+            <span><i class="dot dot-under"></i>Below Target Rate (Underwater)</span>
+          </div>
+        </div>
+        <canvas id="histCanvas" class="hist-canvas" role="img" aria-label="Monte Carlo effort distribution histogram"></canvas>
+      </section>
+
+      <!-- Interactive Scope Surgery Table -->
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Interactive Scope Surgery &amp; Contractual Mode</h2>
+            <p class="hint">Switch risky items from <strong>Core Fixed</strong> to <strong>Capped Allowance (+15% cap)</strong> or <strong>Phase-2 Option</strong> to see live margin recovery.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="scope-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Deliverable &amp; Detected Drift Triggers</th>
+                <th>Base Hrs</th>
+                <th>Raw p50 / p90</th>
+                <th>Contract Mode</th>
+                <th>Exposed p90</th>
+              </tr>
+            </thead>
+            <tbody id="scopeTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Ready-to-Paste Change-Order Shields -->
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Generated Change-Order Shields (Statement of Work Clauses)</h2>
+            <p class="hint">Copy these directly into your proposal's Assumptions &amp; Boundaries section before signing.</p>
+          </div>
+          <button class="btn secondary" id="btnCopyShields" type="button">Copy All Clauses</button>
+        </div>
+        <div class="shields-grid" id="shieldsGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
